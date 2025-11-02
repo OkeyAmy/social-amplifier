@@ -153,31 +153,31 @@ const PostsPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto p-6 space-y-8">
+      <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="brutal-card p-6 bg-accent text-accent-foreground">
-            <h1 className="text-4xl md:text-6xl font-bold">YOUR POSTS</h1>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <div className="brutal-card p-4 md:p-6 bg-accent text-accent-foreground flex-1">
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold">YOUR POSTS</h1>
           </div>
-          <NavLink to="/">
+          <NavLink to="/" className="w-full sm:w-auto">
             <Button
               size="lg"
-              className="brutal-border brutal-shadow-lg bg-success text-success-foreground hover:bg-success/90 font-bold uppercase px-8 py-4"
+              className="w-full sm:w-auto brutal-border brutal-shadow-lg bg-success text-success-foreground hover:bg-success/90 font-bold uppercase px-6 md:px-8 py-4"
             >
-              <Plus className="mr-2 w-6 h-6" />
+              <Plus className="mr-2 w-5 h-5 md:w-6 md:h-6" />
               NEW POST
             </Button>
           </NavLink>
         </div>
 
-        <p className="text-xl font-bold text-center">
+        <p className="text-lg md:text-xl font-bold text-center px-4">
           COPY & PASTE TO YOUR PLATFORMS!
         </p>
 
         {/* Posts List */}
         {posts.length === 0 ? (
-          <div className="brutal-card p-12 bg-card text-center">
-            <h3 className="text-2xl font-bold mb-4">NO POSTS YET</h3>
+          <div className="brutal-card p-8 md:p-12 bg-card text-center">
+            <h3 className="text-xl md:text-2xl font-bold mb-4">NO POSTS YET</h3>
             <p className="text-muted-foreground font-bold mb-6">
               Create your first post to get started!
             </p>
@@ -192,68 +192,77 @@ const PostsPage = () => {
             </NavLink>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {posts.map((post) => (
-              <div key={post.id} className="brutal-card p-6 bg-card">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="text-2xl">{post.emoji || "📝"}</span>
-                      <h3 className="text-xl font-bold">
+              <div key={post.id} className="brutal-card p-4 md:p-6 bg-card">
+                <div className="flex flex-col gap-4">
+                  {/* Post Header */}
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl md:text-3xl flex-shrink-0">{post.emoji || "📝"}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg md:text-xl font-bold break-words">
                         {post.original_idea}
                       </h3>
                     </div>
-                    
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground font-bold mb-4">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        Created {formatDate(post.created_at)}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {getPlatformIcon(post.platform)}
-                        <span className="uppercase">
-                          {post.platform === "both" ? "LinkedIn + X" : post.platform}
-                          {post.mode && ` (${post.mode})`}
-                        </span>
-                      </div>
+                  </div>
+                  
+                  {/* Post Meta */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs md:text-sm text-muted-foreground font-bold">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">Created {formatDate(post.created_at)}</span>
                     </div>
-
-                    {post.content && (
-                      <div className="brutal-border bg-background p-4 font-mono text-sm">
-                        {post.content.length > 150 
-                          ? `${post.content.substring(0, 150)}...`
-                          : post.content
-                        }
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {getPlatformIcon(post.platform)}
                       </div>
-                    )}
+                      <span className="uppercase truncate">
+                        {post.platform === "both" ? "LinkedIn + X" : post.platform}
+                        {post.mode && ` (${post.mode})`}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  {/* Post Content */}
+                  {post.content && (
+                    <div className="brutal-border bg-background p-3 md:p-4 font-mono text-xs md:text-sm overflow-x-auto">
+                      {post.content.length > 150 
+                        ? `${post.content.substring(0, 150)}...`
+                        : post.content
+                      }
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       onClick={() => handleCopy(post.content || post.original_idea)}
                       variant="outline"
                       size="sm"
-                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold"
+                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold flex-1 sm:flex-initial"
                     >
-                      <Copy className="w-4 h-4" />
+                      <Copy className="w-4 h-4 mr-2" />
+                      <span className="hidden sm:inline">COPY</span>
                     </Button>
                     
                     <Button
                       onClick={() => handleView(post)}
                       variant="outline"
                       size="sm"
-                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold"
+                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold flex-1 sm:flex-initial"
                     >
-                      <Eye className="w-4 h-4" />
+                      <Eye className="w-4 h-4 mr-2" />
+                      <span className="hidden sm:inline">VIEW</span>
                     </Button>
                     
                     <Button
                       onClick={() => handleDelete(post.id)}
                       variant="outline"
                       size="sm"
-                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground flex-1 sm:flex-initial"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      <span className="hidden sm:inline">DELETE</span>
                     </Button>
                   </div>
                 </div>
