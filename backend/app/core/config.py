@@ -47,7 +47,10 @@ class Settings(BaseSettings):
     # Read the raw env value as a string to avoid the dotenv provider attempting
     # to json-decode an empty value (which raises JSONDecodeError). We'll
     # normalize to a list after settings are instantiated below.
-    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+    CORS_ORIGINS: str = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://localhost:3000,http://localhost:8080,http://127.0.0.1:8080"
+    )
     
     # Session Configuration
     SESSION_TIMEOUT_MINUTES: int = 30

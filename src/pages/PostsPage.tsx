@@ -1,8 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Copy, Eye, Trash2, Calendar, Linkedin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { NavLink } from "react-router-dom";
+import { getDrafts, deleteDraft } from "@/services/api";
+import type { Draft } from "@/types/api";
+import { ApiError } from "@/types/api";
 
 // X (Twitter) SVG Icon Component  
 const XIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
@@ -11,61 +14,33 @@ const XIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   </svg>
 );
 
-interface Post {
-  id: number;
-  emoji: string | null;
-  original_idea: string;
-  platform: string;
-  mode?: string;
-  created_at: string;
-  content?: string;
-}
-
 const PostsPage = () => {
   const { toast } = useToast();
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<Draft[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const fetchPosts = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getDrafts();
+      setPosts(data);
+    } catch (error) {
+      console.error("Failed to fetch posts:", error);
+      const message = error instanceof ApiError
+        ? `Unable to load drafts (status ${error.status}).`
+        : "Failed to load drafts. Please try again.";
+      toast({
+        title: "❌ LOAD FAILED",
+        description: message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     fetchPosts();
-  }, []);
-
-  const fetchPosts = async () => {
-    try {
-      // TODO: Replace with actual backend call
-      // const response = await fetch('/api/v1/drafts/');
-      // const data = await response.json();
-      // setPosts(data);
-      
-      // Mock data for now
-      const mockPosts: Post[] = [
-        {
-          id: 1,
-          emoji: "😎",
-          original_idea: "travel to abj and i am building softwares",
-          platform: "both",
-          created_at: "2025-11-02T19:14:00Z",
-          content: "Just landed in Abuja! 🛩️ Building software remotely while exploring new cities..."
-        },
-        {
-          id: 2,
-          emoji: "🔥",
-          original_idea: "10/10/2004",
-          platform: "twitter",
-          mode: "single",
-          created_at: "2025-11-02T16:48:00Z",
-          content: "October 10th, 2004 - A date that changed everything 🔥"
-        }
-      ];
-      
-      setPosts(mockPosts);
-      setLoading(false);
-      
-    } catch (error) {
-      console.error("Failed to fetch posts:", error);
-      setLoading(false);
-    }
-  };
+  }, [fetchPosts]);
 
   const handleCopy = async (content: string) => {
     try {
@@ -82,7 +57,7 @@ const PostsPage = () => {
     }
   };
 
-  const handleView = (post: Post) => {
+  const handleView = (post: Draft) => {
     // TODO: Open modal or navigate to detailed view
     toast({
       title: "👀 VIEW POST",
@@ -92,18 +67,20 @@ const PostsPage = () => {
 
   const handleDelete = async (postId: number) => {
     try {
-      // TODO: Replace with actual backend call
-      // await fetch(`/api/v1/drafts/${postId}`, { method: 'DELETE' });
-      
+      await deleteDraft(postId);
       setPosts(prev => prev.filter(p => p.id !== postId));
       toast({
         title: "🗑️ DELETED!",
         description: "Post deleted successfully",
       });
     } catch (error) {
+      console.error("Failed to delete post:", error);
+      const message = error instanceof ApiError
+        ? `Delete failed (status ${error.status}).`
+        : "Failed to delete post.";
       toast({
         title: "❌ DELETE FAILED",
-        description: "Failed to delete post",
+        description: message,
       });
     }
   };
@@ -218,17 +195,17 @@ const PostsPage = () => {
                       </div>
                       <span className="uppercase truncate">
                         {post.platform === "both" ? "LinkedIn + X" : post.platform}
-                        {post.mode && ` (${post.mode})`}
+                        {post.mode ? ` (${post.mode})` : ""}
                       </span>
                     </div>
                   </div>
 
                   {/* Post Content */}
-                  {post.content && (
+                  {post.generated_content && (
                     <div className="brutal-border bg-background p-3 md:p-4 font-mono text-xs md:text-sm overflow-x-auto">
-                      {post.content.length > 150 
-                        ? `${post.content.substring(0, 150)}...`
-                        : post.content
+                      {post.generated_content.length > 150 
+                        ? `${post.generated_content.substring(0, 150)}...`
+                        : post.generated_content
                       }
                     </div>
                   )}
@@ -236,7 +213,7 @@ const PostsPage = () => {
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-2">
                     <Button
-                      onClick={() => handleCopy(post.content || post.original_idea)}
+                      onClick={() => handleCopy(post.generated_content || post.original_idea)}
                       variant="outline"
                       size="sm"
                       className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold flex-1 sm:flex-initial"

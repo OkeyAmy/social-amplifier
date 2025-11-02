@@ -1,7 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Linkedin, ExternalLink, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { PlatformConnectionsStatus } from "@/types/api";
+import { getConnectionStatus, initiatePlatformConnect, disconnectPlatform } from "@/services/api";
+
+const createInitialStatus = (): PlatformConnectionsStatus => ({
+  linkedin: { platform: "linkedin", connected: false, expires_at: null, username: null },
+  twitter: { platform: "twitter", connected: false, expires_at: null, username: null }
+});
 
 // X (Twitter) SVG Icon Component
 const XIcon = ({ className = "w-16 h-16" }: { className?: string }) => (
@@ -19,67 +26,46 @@ interface ConnectionStatus {
 
 const ConnectPage = () => {
   const { toast } = useToast();
-  const [connectionStatus, setConnectionStatus] = useState<{
-    linkedin: ConnectionStatus;
-    twitter: ConnectionStatus;
-  }>({
-    linkedin: { platform: "linkedin", connected: false, expires_at: null, username: null },
-    twitter: { platform: "twitter", connected: false, expires_at: null, username: null }
-  });
+  const [connectionStatus, setConnectionStatus] = useState<PlatformConnectionsStatus>(createInitialStatus);
+  const [statusLoading, setStatusLoading] = useState<boolean>(true);
   const [loading, setLoading] = useState<{ linkedin: boolean; twitter: boolean }>({
     linkedin: false,
     twitter: false
   });
 
-  useEffect(() => {
-    fetchConnectionStatus();
-  }, []);
-
-  const fetchConnectionStatus = async () => {
+  const fetchConnectionStatus = useCallback(async () => {
     try {
-      // TODO: Replace with actual backend call
-      // const response = await fetch('/api/v1/auth/status');
-      // const data = await response.json();
-      // setConnectionStatus(data);
-      
-      // Mock data for now
-      console.log("Fetching connection status...");
+      setStatusLoading(true);
+      const data = await getConnectionStatus();
+      setConnectionStatus(data);
     } catch (error) {
       console.error("Failed to fetch connection status:", error);
+      toast({
+        title: "⚠️ STATUS ERROR",
+        description: "Unable to retrieve platform status. Please refresh.",
+      });
+      setConnectionStatus(createInitialStatus());
+    } finally {
+      setStatusLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchConnectionStatus();
+  }, [fetchConnectionStatus]);
 
   const handleConnect = async (platform: "linkedin" | "twitter") => {
     setLoading(prev => ({ ...prev, [platform]: true }));
     
     try {
-      // TODO: Replace with actual backend call
-      // const response = await fetch(`/api/v1/auth/${platform}/connect`);
-      // const data = await response.json();
-      // window.open(data.authorization_url, '_blank');
-      
+      const data = await initiatePlatformConnect(platform);
       toast({
         title: "🚀 CONNECTING...",
-        description: `Opening ${platform} authorization window (backend integration needed)`,
+        description: `Proceed with ${platform.toUpperCase()} authorization in the new window.`,
       });
-      
-      // Mock connection after delay
-      setTimeout(() => {
-        setConnectionStatus(prev => ({
-          ...prev,
-          [platform]: {
-            ...prev[platform],
-            connected: true,
-            username: `demo_user_${platform}`
-          }
-        }));
-        
-        toast({
-          title: "✅ CONNECTED!",
-          description: `Successfully connected to ${platform.toUpperCase()}`,
-        });
-      }, 2000);
-      
+
+      window.open(data.authorization_url, "_blank", "noopener,noreferrer");
+
     } catch (error) {
       console.error(`Failed to connect to ${platform}:`, error);
       toast({
@@ -88,27 +74,15 @@ const ConnectPage = () => {
       });
     } finally {
       setLoading(prev => ({ ...prev, [platform]: false }));
+      fetchConnectionStatus();
     }
   };
 
   const handleDisconnect = async (platform: "linkedin" | "twitter") => {
     try {
-      // TODO: Replace with actual backend call
-      // await fetch(`/api/v1/auth/disconnect`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ platform })
-      // });
-      
-      setConnectionStatus(prev => ({
-        ...prev,
-        [platform]: {
-          ...prev[platform],
-          connected: false,
-          username: null
-        }
-      }));
-      
+      await disconnectPlatform(platform);
+      await fetchConnectionStatus();
+
       toast({
         title: "🔌 DISCONNECTED",
         description: `Disconnected from ${platform.toUpperCase()}`,
@@ -252,7 +226,7 @@ const ConnectPage = () => {
         </div>
 
         {/* Connection Status */}
-        {!connectionStatus.linkedin.connected && !connectionStatus.twitter.connected && (
+        {!statusLoading && !connectionStatus.linkedin.connected && !connectionStatus.twitter.connected && (
           <div className="brutal-card p-6 bg-warning text-warning-foreground">
             <div className="flex items-center gap-3">
               <AlertCircle className="w-6 h-6" />
