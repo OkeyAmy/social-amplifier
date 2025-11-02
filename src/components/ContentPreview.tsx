@@ -1,8 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, RefreshCw, Save, Send } from "lucide-react";
 import type { Platform, TwitterMode } from "@/pages/Index";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import type { GeneratedContentResponse } from "@/types/api";
+import {
+  generateLinkedInContent,
+  generateTwitterContent,
+  saveDraft,
+} from "@/services/api";
+import { ApiError } from "@/types/api";
 
 interface ContentPreviewProps {
   idea: string;
@@ -25,47 +32,181 @@ const ContentPreview = ({
 }: ContentPreviewProps) => {
   const { toast } = useToast();
   const [generatedContent, setGeneratedContent] = useState<{
-    linkedin?: string;
-    twitter?: string[];
+    linkedin?: GeneratedContentResponse;
+    twitter?: GeneratedContentResponse;
   }>({});
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState<number>(0);
+  const twitterEntries = useMemo(() => {
+    if (!generatedContent.twitter) {
+      return [] as { sequence: number; content: string; characterCount: number; }[];
+    }
 
-  // Mock AI generation (in production, this would call backend)
-  const generateContent = () => {
-    const linkedinContent = `${emoji ? emoji + " " : ""}${idea}\n\nKey insights:\n• Professional perspective\n• Industry relevance\n• Call to action\n\n#Leadership #Innovation #Growth`;
-    
-    const twitterSingle = `${emoji ? emoji + " " : ""}${idea.substring(0, 240)}... 🚀`;
-    
-    const twitterThread = [
-      `1/ ${emoji ? emoji + " " : ""}${idea.substring(0, 200)}...`,
-      `2/ Here's why this matters: [AI would expand on the idea]`,
-      `3/ Final thoughts: [AI would provide conclusion] 🎯`
-    ];
+    if (generatedContent.twitter.is_thread && generatedContent.twitter.thread_tweets?.length) {
+      return generatedContent.twitter.thread_tweets.map(tweet => ({
+        sequence: tweet.sequence,
+        content: tweet.content,
+        characterCount: tweet.character_count,
+      }));
+    }
 
-    setGeneratedContent({
-      linkedin: platform === "linkedin" || platform === "both" ? linkedinContent : undefined,
-      twitter: platform === "twitter" || platform === "both" 
-        ? (twitterMode === "thread" ? twitterThread : [twitterSingle])
-        : undefined,
-    });
+    if (generatedContent.twitter.generated_content) {
+      return [{
+        sequence: 1,
+        content: generatedContent.twitter.generated_content,
+        characterCount: generatedContent.twitter.character_count,
+      }];
+    }
+
+    return [];
+  }, [generatedContent.twitter]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadGeneratedContent = async () => {
+      if (!idea) {
+        setGeneratedContent({});
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      const nextState: {
+        linkedin?: GeneratedContentResponse;
+        twitter?: GeneratedContentResponse;
+      } = {};
+
+      try {
+        const promises: Promise<void>[] = [];
+
+        if (platform === "linkedin" || platform === "both") {
+          promises.push(
+            generateLinkedInContent(idea, emoji ?? undefined, "standard").then(response => {
+              if (isActive) {
+                nextState.linkedin = response;
+              }
+            })
+          );
+        }
+
+        if (platform === "twitter" || platform === "both") {
+          const mode = twitterMode ?? "single";
+          promises.push(
+            generateTwitterContent(idea, emoji ?? undefined, mode).then(response => {
+              if (isActive) {
+                nextState.twitter = response;
+              }
+            })
+          );
+        }
+
+        await Promise.all(promises);
+
+        if (isActive) {
+          setGeneratedContent(nextState);
+        }
+      } catch (err) {
+        if (!isActive) {
+          return;
+        }
+
+        console.error("Failed to generate content:", err);
+        const message = err instanceof ApiError
+          ? `Generation failed (status ${err.status}).`
+          : "Failed to generate content. Please try again.";
+
+        setError(message);
+        setGeneratedContent({});
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadGeneratedContent();
+
+    return () => {
+      isActive = false;
+    };
+  }, [idea, emoji, platform, twitterMode, refreshNonce]);
+
+  const handleRegenerate = () => {
+    setRefreshNonce(prev => prev + 1);
   };
-
-  // Generate on mount
-  useState(() => {
-    generateContent();
-  });
 
   const handlePost = () => {
+    if (!generatedContent.linkedin && !generatedContent.twitter) {
+      toast({
+        title: "⚠️ NO CONTENT",
+        description: "Generate content before attempting to publish.",
+      });
+      return;
+    }
+
     toast({
       title: "🎉 READY TO POST!",
-      description: "Backend integration needed for actual posting. Connect platforms to go live!",
+      description: "Publishing requires valid access tokens from connected accounts.",
     });
   };
 
-  const handleSaveDraft = () => {
-    toast({
-      title: "💾 DRAFT SAVED!",
-      description: "Your content has been saved (frontend demo only)",
-    });
+  const handleSaveDraft = async () => {
+    const payloads = [];
+
+    if (generatedContent.linkedin) {
+      payloads.push(
+        saveDraft({
+          original_idea: generatedContent.linkedin.original_idea,
+          emoji,
+          generated_content: generatedContent.linkedin.generated_content,
+          platform: "linkedin",
+          mode: generatedContent.linkedin.mode,
+          image_url: imagePreview ?? null,
+        })
+      );
+    }
+
+    if (generatedContent.twitter) {
+      const twitterContent = generatedContent.twitter.is_thread && generatedContent.twitter.thread_tweets?.length
+        ? generatedContent.twitter.thread_tweets.map(tweet => tweet.content).join("\n\n")
+        : generatedContent.twitter.generated_content;
+
+      payloads.push(
+        saveDraft({
+          original_idea: generatedContent.twitter.original_idea,
+          emoji,
+          generated_content: twitterContent,
+          platform: "twitter",
+          mode: generatedContent.twitter.mode,
+          image_url: imagePreview ?? null,
+        })
+      );
+    }
+
+    if (!payloads.length) {
+      toast({
+        title: "⚠️ NOTHING TO SAVE",
+        description: "Generate content before saving.",
+      });
+      return;
+    }
+
+    try {
+      await Promise.all(payloads);
+      toast({
+        title: "💾 DRAFT SAVED!",
+        description: "Draft saved to the backend successfully.",
+      });
+    } catch (err) {
+      console.error("Failed to save draft:", err);
+      toast({
+        title: "❌ SAVE FAILED",
+        description: "Unable to save draft. Please try again.",
+      });
+    }
   };
 
   return (
@@ -79,7 +220,7 @@ const ContentPreview = ({
           <ArrowLeft className="mr-2" /> BACK
         </Button>
         <Button
-          onClick={generateContent}
+          onClick={handleRegenerate}
           variant="outline"
           className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
         >
@@ -87,9 +228,21 @@ const ContentPreview = ({
         </Button>
       </div>
 
+      {isLoading && (
+        <div className="brutal-card p-4 bg-card text-center font-bold">
+          Generating optimized content...
+        </div>
+      )}
+
+      {error && (
+        <div className="brutal-card p-4 bg-destructive text-destructive-foreground font-bold text-center">
+          {error}
+        </div>
+      )}
+
       <div className="brutal-card p-4 bg-warning text-warning-foreground">
         <p className="font-bold text-center">
-          ⚠️ DEMO MODE: Backend integration needed for AI generation & posting
+          ⚠️ NOTE: Content is generated via the backend. Publishing still requires valid platform tokens.
         </p>
       </div>
 
@@ -98,37 +251,50 @@ const ContentPreview = ({
           <div className="brutal-card p-6 bg-linkedin/10">
             <div className="flex items-center gap-3 mb-4">
               <div className="text-3xl">💼</div>
-              <h3 className="text-xl font-bold">LINKEDIN POST</h3>
+              <div>
+                <h3 className="text-xl font-bold">LINKEDIN POST</h3>
+                {generatedContent.linkedin.tone && (
+                  <p className="text-xs text-muted-foreground font-bold">
+                    Tone: {generatedContent.linkedin.tone} · Score: {generatedContent.linkedin.professional_score ?? "-"}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="brutal-border bg-card p-4">
+            <div className="brutal-border bg-card p-4 space-y-4">
               {imagePreview && (
                 <img 
                   src={imagePreview} 
                   alt="Post" 
-                  className="w-full h-48 object-cover brutal-border mb-4"
+                  className="w-full h-48 object-cover brutal-border"
                 />
               )}
               <p className="whitespace-pre-wrap font-mono text-sm">
-                {generatedContent.linkedin}
+                {generatedContent.linkedin.generated_content}
               </p>
-              <div className="mt-4 text-xs text-muted-foreground font-bold">
-                {generatedContent.linkedin.length} characters
+              {generatedContent.linkedin.hashtags.length > 0 && (
+                <div className="text-xs font-bold text-linkedin">
+                  {generatedContent.linkedin.hashtags.map(tag => `#${tag.replace(/^#/, "")}`).join(" ")}
+                </div>
+              )}
+              <div className="text-xs text-muted-foreground font-bold flex items-center justify-between">
+                <span>{generatedContent.linkedin.character_count} characters</span>
+                <span>Engagement: {generatedContent.linkedin.estimated_engagement}</span>
               </div>
             </div>
           </div>
         )}
 
-        {generatedContent.twitter && (
+        {generatedContent.twitter && twitterEntries.length > 0 && (
           <div className="brutal-card p-6 bg-twitter/10">
             <div className="flex items-center gap-3 mb-4">
               <div className="text-3xl">𝕏</div>
               <h3 className="text-xl font-bold">
-                X {twitterMode === "thread" ? "THREAD" : "POST"}
+                X {generatedContent.twitter.is_thread ? "THREAD" : "POST"}
               </h3>
             </div>
             <div className="space-y-3">
-              {generatedContent.twitter.map((tweet, index) => (
-                <div key={index} className="brutal-border bg-card p-4">
+              {twitterEntries.map((tweet, index) => (
+                <div key={tweet.sequence ?? index} className="brutal-border bg-card p-4 space-y-3">
                   {index === 0 && imagePreview && (
                     <img 
                       src={imagePreview} 
@@ -137,14 +303,20 @@ const ContentPreview = ({
                     />
                   )}
                   <p className="whitespace-pre-wrap font-mono text-sm">
-                    {tweet}
+                    {tweet.content}
                   </p>
-                  <div className="mt-2 text-xs text-muted-foreground font-bold">
-                    {tweet.length} characters
+                  <div className="text-xs text-muted-foreground font-bold flex items-center justify-between">
+                    <span>Tweet {tweet.sequence}</span>
+                    <span>{tweet.characterCount} characters</span>
                   </div>
                 </div>
               ))}
             </div>
+            {generatedContent.twitter.hashtags.length > 0 && (
+              <div className="mt-3 text-xs font-bold text-twitter">
+                {generatedContent.twitter.hashtags.map(tag => `#${tag.replace(/^#/, "")}`).join(" ")}
+              </div>
+            )}
           </div>
         )}
       </div>
