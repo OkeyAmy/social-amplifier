@@ -56,26 +56,28 @@ const PlatformSelector = ({ onSelect, onBack, idea }: PlatformSelectorProps) => 
             <div className="grid md:grid-cols-2 gap-6">
               <button
                 onClick={() => handlePlatformClick("linkedin")}
-                className="brutal-card p-8 bg-linkedin text-linkedin-foreground hover:translate-x-2 hover:translate-y-2 hover:shadow-none transition-all group"
+                className="brutal-card p-8 bg-card hover:translate-x-2 hover:translate-y-2 hover:shadow-none transition-all group"
               >
                 <div className="mb-4 flex justify-center">
-                  <Linkedin className="w-16 h-16" />
+                  <div className="brutal-border brutal-shadow bg-linkedin text-linkedin-foreground p-4">
+                    <Linkedin className="w-16 h-16" />
+                  </div>
                 </div>
                 <h3 className="text-2xl font-bold mb-2">LINKEDIN</h3>
-                <p className="text-sm opacity-90">Professional audience</p>
-                <p className="text-sm opacity-90 mt-2">~1,500 characters</p>
+                <p className="text-sm text-muted-foreground font-bold">EXPAND & PROFESSIONAL</p>
               </button>
 
               <button
                 onClick={() => handlePlatformClick("twitter")}
-                className="brutal-card p-8 bg-twitter text-twitter-foreground hover:translate-x-2 hover:translate-y-2 hover:shadow-none transition-all group"
+                className="brutal-card p-8 bg-card hover:translate-x-2 hover:translate-y-2 hover:shadow-none transition-all group"
               >
                 <div className="mb-4 flex justify-center">
-                  <XIcon />
+                  <div className="brutal-border brutal-shadow bg-twitter text-twitter-foreground p-4">
+                    <XIcon />
+                  </div>
                 </div>
                 <h3 className="text-2xl font-bold mb-2">X (TWITTER)</h3>
-                <p className="text-sm opacity-90">Fast-paced conversation</p>
-                <p className="text-sm opacity-90 mt-2">280 chars or threads</p>
+                <p className="text-sm text-muted-foreground font-bold">THREAD OR SINGLE</p>
               </button>
             </div>
 

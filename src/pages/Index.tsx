@@ -53,18 +53,13 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <header className="mb-8 md:mb-12">
-        <h1 className="text-center font-bold tracking-tighter">
-          <span className="inline-block rotate-slightly-reverse bg-primary px-4 py-2 text-primary-foreground brutal-border brutal-shadow">
-            SOCIAL
-          </span>
-          <span className="inline-block rotate-slightly bg-secondary px-4 py-2 text-secondary-foreground brutal-border brutal-shadow ml-2">
-            AMPLIFIER
-          </span>
-        </h1>
-        <p className="text-center mt-4 text-lg font-bold">
-          Transform ideas into platform-optimized content in 60 seconds
+    <div className="bg-background p-4 md:p-8">
+      <header className="mb-8 md:mb-12 text-center">
+        <div className="brutal-card p-8 bg-secondary text-secondary-foreground mx-auto inline-block mb-4">
+          <h1 className="text-4xl md:text-6xl font-bold">POSTBLASTER</h1>
+        </div>
+        <p className="text-xl font-bold">
+          DROP YOUR IDEA. WE'LL MAKE IT <span className="text-destructive">POP</span>!
         </p>
       </header>
 
