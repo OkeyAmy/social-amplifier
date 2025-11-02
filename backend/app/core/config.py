@@ -44,7 +44,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./social_amplifier.db")
     
     # CORS
-    CORS_ORIGINS: List[str] = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+    # Read the raw env value as a string to avoid the dotenv provider attempting
+    # to json-decode an empty value (which raises JSONDecodeError). We'll
+    # normalize to a list after settings are instantiated below.
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
     
     # Session Configuration
     SESSION_TIMEOUT_MINUTES: int = 30
@@ -55,3 +58,23 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Normalize `CORS_ORIGINS` into a List[str] so downstream code can always
+# treat `settings.CORS_ORIGINS` as a list. This accepts either a JSON array
+# string, a comma-separated string, or an empty value in the .env.
+cors_raw = settings.CORS_ORIGINS or ""
+if isinstance(cors_raw, str):
+    cors_value = cors_raw.strip()
+    if not cors_value:
+        settings.CORS_ORIGINS = []
+    else:
+        try:
+            import json
+
+            parsed = json.loads(cors_value)
+            if isinstance(parsed, list):
+                settings.CORS_ORIGINS = parsed
+            else:
+                settings.CORS_ORIGINS = [p.strip() for p in cors_value.split(",") if p.strip()]
+        except Exception:
+            settings.CORS_ORIGINS = [p.strip() for p in cors_value.split(",") if p.strip()]
