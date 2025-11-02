@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Linkedin } from "lucide-react";
 import type { Platform, TwitterMode } from "@/pages/Index";
+
+// X (Twitter) SVG Icon Component
+const XIcon = () => (
+  <svg viewBox="0 0 24 24" className="w-16 h-16" fill="currentColor">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+  </svg>
+);
 
 interface PlatformSelectorProps {
   onSelect: (platform: Platform, twitterMode?: TwitterMode) => void;
@@ -51,7 +58,9 @@ const PlatformSelector = ({ onSelect, onBack, idea }: PlatformSelectorProps) => 
                 onClick={() => handlePlatformClick("linkedin")}
                 className="brutal-card p-8 bg-linkedin text-linkedin-foreground hover:translate-x-2 hover:translate-y-2 hover:shadow-none transition-all group"
               >
-                <div className="text-6xl mb-4">💼</div>
+                <div className="mb-4 flex justify-center">
+                  <Linkedin className="w-16 h-16" />
+                </div>
                 <h3 className="text-2xl font-bold mb-2">LINKEDIN</h3>
                 <p className="text-sm opacity-90">Professional audience</p>
                 <p className="text-sm opacity-90 mt-2">~1,500 characters</p>
@@ -61,7 +70,9 @@ const PlatformSelector = ({ onSelect, onBack, idea }: PlatformSelectorProps) => 
                 onClick={() => handlePlatformClick("twitter")}
                 className="brutal-card p-8 bg-twitter text-twitter-foreground hover:translate-x-2 hover:translate-y-2 hover:shadow-none transition-all group"
               >
-                <div className="text-6xl mb-4">𝕏</div>
+                <div className="mb-4 flex justify-center">
+                  <XIcon />
+                </div>
                 <h3 className="text-2xl font-bold mb-2">X (TWITTER)</h3>
                 <p className="text-sm opacity-90">Fast-paced conversation</p>
                 <p className="text-sm opacity-90 mt-2">280 chars or threads</p>
