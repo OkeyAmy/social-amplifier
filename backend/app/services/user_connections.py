@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -16,6 +17,24 @@ from app.core.exceptions import PlatformConnectionError, TokenExpiredError
 
 
 DEFAULT_USER_EMAIL = getattr(settings, "DEFAULT_USER_EMAIL", None) or "default@socialamplifier.local"
+
+
+@dataclass
+class LinkedInConnection:
+    access_token: str
+    refresh_token: Optional[str]
+    expires_at: Optional[datetime]
+    user_id: Optional[str]
+    username: Optional[str]
+
+
+@dataclass
+class TwitterConnection:
+    access_token: str
+    refresh_token: Optional[str]
+    expires_at: Optional[datetime]
+    user_id: Optional[str]
+    username: Optional[str]
 
 
 class UserConnectionService:
@@ -105,7 +124,7 @@ class UserConnectionService:
 
             return self._build_connection_status(platform, user)
 
-    async def get_linkedin_access_token(self) -> str:
+    async def get_linkedin_connection(self) -> LinkedInConnection:
         async with get_session() as session:
             user = await self._ensure_user(session)
 
@@ -117,9 +136,15 @@ class UserConnectionService:
                 await session.commit()
                 raise TokenExpiredError("LinkedIn access token expired.")
 
-            return user.linkedin_access_token
+            return LinkedInConnection(
+                access_token=user.linkedin_access_token,
+                refresh_token=user.linkedin_refresh_token,
+                expires_at=user.linkedin_token_expires,
+                user_id=user.linkedin_user_id,
+                username=user.linkedin_username,
+            )
 
-    async def get_twitter_access_token(self) -> str:
+    async def get_twitter_connection(self) -> TwitterConnection:
         async with get_session() as session:
             user = await self._ensure_user(session)
 
@@ -131,7 +156,21 @@ class UserConnectionService:
                 await session.commit()
                 raise TokenExpiredError("Twitter access token expired.")
 
-            return user.twitter_access_token
+            return TwitterConnection(
+                access_token=user.twitter_access_token,
+                refresh_token=user.twitter_refresh_token,
+                expires_at=user.twitter_token_expires,
+                user_id=user.twitter_user_id,
+                username=user.twitter_username,
+            )
+
+    async def get_linkedin_access_token(self) -> str:
+        connection = await self.get_linkedin_connection()
+        return connection.access_token
+
+    async def get_twitter_access_token(self) -> str:
+        connection = await self.get_twitter_connection()
+        return connection.access_token
 
     async def _ensure_user(self, session: AsyncSession) -> User:
         stmt = select(User).where(User.email == self.default_email)

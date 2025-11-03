@@ -9,6 +9,24 @@ from app.services.linkedin import linkedin_service
 from app.services.twitter import twitter_service
 from app.services.user_connections import user_connection_service
 from app.core.exceptions import PublishingError, TokenExpiredError, RateLimitError, PlatformConnectionError
+from base64 import b64decode
+import binascii
+
+
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def _parse_base64_image(data: Optional[str]) -> Optional[bytes]:
+    if not data:
+        return None
+
+    try:
+        decoded = b64decode(data)
+        if len(decoded) > MAX_IMAGE_BYTES:
+            raise HTTPException(status_code=400, detail="Image exceeds 10MB limit.")
+        return decoded
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid image payload.") from exc
 
 router = APIRouter()
 
@@ -16,7 +34,8 @@ router = APIRouter()
 class PublishRequest(BaseModel):
     """Request to publish content"""
     content: str
-    image_url: Optional[str] = None
+    image_base64: Optional[str] = None
+    image_mime_type: Optional[str] = None
 
 
 class PublishTwitterRequest(PublishRequest):
@@ -32,16 +51,20 @@ async def publish_to_linkedin(request: PublishRequest):
     """
     try:
         try:
-            encrypted_token = await user_connection_service.get_linkedin_access_token()
+            connection = await user_connection_service.get_linkedin_connection()
         except TokenExpiredError as exc:
             raise HTTPException(status_code=401, detail="LinkedIn token expired. Please reconnect your account.") from exc
         except PlatformConnectionError as exc:
             raise HTTPException(status_code=400, detail="LinkedIn account is not connected.") from exc
 
+        image_bytes = _parse_base64_image(request.image_base64)
+        owner_urn = f"urn:li:person:{connection.user_id}" if connection.user_id else None
         result = await linkedin_service.publish_post(
-            encrypted_access_token=encrypted_token,
+            encrypted_access_token=connection.access_token,
             content=request.content,
-            image_url=request.image_url
+            image_bytes=image_bytes,
+            image_mime_type=request.image_mime_type,
+            owner_urn=owner_urn,
         )
         
         return {
@@ -66,17 +89,28 @@ async def publish_to_twitter(request: PublishTwitterRequest):
     """
     try:
         try:
-            encrypted_token = await user_connection_service.get_twitter_access_token()
+            connection = await user_connection_service.get_twitter_connection()
         except TokenExpiredError as exc:
             raise HTTPException(status_code=401, detail="Twitter token expired. Please reconnect your account.") from exc
         except PlatformConnectionError as exc:
             raise HTTPException(status_code=400, detail="Twitter account is not connected.") from exc
 
+        media_ids: Optional[List[str]] = None
+        image_bytes = _parse_base64_image(request.image_base64)
+        if image_bytes:
+            media_id = await twitter_service.upload_media(
+                encrypted_access_token=connection.access_token,
+                image_bytes=image_bytes,
+                mime_type=request.image_mime_type or "image/jpeg",
+            )
+            media_ids = [media_id]
+
         if request.mode == "thread" and request.thread_tweets:
             # Publish thread
             results = await twitter_service.publish_thread(
-                encrypted_access_token=encrypted_token,
-                tweets=request.thread_tweets
+                encrypted_access_token=connection.access_token,
+                tweets=request.thread_tweets,
+                image_ids=media_ids,
             )
             
             return {
@@ -90,8 +124,9 @@ async def publish_to_twitter(request: PublishTwitterRequest):
         else:
             # Publish single tweet
             result = await twitter_service.publish_tweet(
-                encrypted_access_token=encrypted_token,
-                content=request.content
+                encrypted_access_token=connection.access_token,
+                content=request.content,
+                image_ids=media_ids,
             )
             
             return {
@@ -128,11 +163,16 @@ async def publish_to_both_platforms(
     
     # Publish to LinkedIn
     try:
-        encrypted_token = await user_connection_service.get_linkedin_access_token()
+        connection = await user_connection_service.get_linkedin_connection()
+        owner_urn = f"urn:li:person:{connection.user_id}" if connection.user_id else None
+        image_bytes = _parse_base64_image(linkedin_request.image_base64)
+
         linkedin_result = await linkedin_service.publish_post(
-            encrypted_access_token=encrypted_token,
+            encrypted_access_token=connection.access_token,
             content=linkedin_request.content,
-            image_url=linkedin_request.image_url
+            image_bytes=image_bytes,
+            image_mime_type=linkedin_request.image_mime_type,
+            owner_urn=owner_urn,
         )
         results["linkedin"] = {
             "success": True,
@@ -145,11 +185,22 @@ async def publish_to_both_platforms(
     
     # Publish to Twitter
     try:
-        encrypted_token = await user_connection_service.get_twitter_access_token()
+        connection = await user_connection_service.get_twitter_connection()
+        media_ids: Optional[List[str]] = None
+        image_bytes = _parse_base64_image(twitter_request.image_base64)
+        if image_bytes:
+            media_id = await twitter_service.upload_media(
+                encrypted_access_token=connection.access_token,
+                image_bytes=image_bytes,
+                mime_type=twitter_request.image_mime_type or "image/jpeg",
+            )
+            media_ids = [media_id]
+
         if twitter_request.mode == "thread" and twitter_request.thread_tweets:
             twitter_results = await twitter_service.publish_thread(
-                encrypted_access_token=encrypted_token,
-                tweets=twitter_request.thread_tweets
+                encrypted_access_token=connection.access_token,
+                tweets=twitter_request.thread_tweets,
+                image_ids=media_ids,
             )
             results["twitter"] = {
                 "success": True,
@@ -158,8 +209,9 @@ async def publish_to_both_platforms(
             }
         else:
             twitter_result = await twitter_service.publish_tweet(
-                encrypted_access_token=encrypted_token,
-                content=twitter_request.content
+                encrypted_access_token=connection.access_token,
+                content=twitter_request.content,
+                image_ids=media_ids,
             )
             results["twitter"] = {
                 "success": True,

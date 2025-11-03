@@ -62,7 +62,8 @@ export interface DraftUpdatePayload {
 
 export interface PublishRequestPayload {
   content: string;
-  image_url?: string | null;
+  image_base64?: string | null;
+  image_mime_type?: string | null;
 }
 
 export interface PublishTwitterRequestPayload extends PublishRequestPayload {

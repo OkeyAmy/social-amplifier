@@ -67,7 +67,7 @@ const IdeaInput = ({ onSubmit }: IdeaInputProps) => {
         )}
       </div>
 
-      {idea.length > 10 && (
+      {idea.length >= MIN_IDEA_LENGTH && (
         <div className="brutal-card p-6 rotate-slightly-reverse bg-secondary animate-in slide-in-from-top duration-300">
           <h3 className="mb-4 font-bold text-secondary-foreground">
             PICK A MOOD (OPTIONAL)

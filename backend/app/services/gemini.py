@@ -10,6 +10,20 @@ from app.core.config import settings
 from app.core.exceptions import ContentGenerationError
 
 
+SYSTEM_PROMPT = """
+You are PostBlaster, a senior social content strategist helping busy founders ship platform-native posts.
+
+Non-negotiables:
+- Keep the creator's original facts, intentions, and voice intact?never invent data or names.
+- Default to inclusive, encouraging language that sounds human and grounded.
+- Deliver compact JSON only. No prose, Markdown, or code fences.
+- Respect platform limits (LinkedIn ? 3000 chars; X tweets ? 270 chars) and make content skimmable.
+- When structuring content, think in hooks, snackable sections, and clear calls-to-action.
+
+If the idea lacks detail, sharpen the message without fabricating specifics.
+"""
+
+
 class GeminiService:
     """Service for interacting with Google Gemini AI"""
     
@@ -19,28 +33,31 @@ class GeminiService:
             raise ContentGenerationError("Gemini API key not configured")
         
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel(settings.GEMINI_MODEL)
+        self.model = genai.GenerativeModel(
+            model_name=settings.GEMINI_MODEL,
+            system_instruction=SYSTEM_PROMPT,
+        )
     
     async def analyze_idea(self, idea: str, emoji: Optional[str] = None) -> dict:
         """
         Analyze the user's idea to determine tone, sentiment, and recommendations
         """
         prompt = f"""
-        Analyze this user idea and provide a JSON response:
-        
-        Idea: "{idea}"
-        Selected Emoji: {emoji if emoji else "None"}
-        
-        Return a JSON object with:
-        - tone: (casual, professional, excited, reflective, frustrated, celebratory)
-        - sentiment: (positive, negative, neutral)
-        - complexity: (simple, moderate, complex)
-        - recommended_platform: (linkedin, twitter, both)
-        - recommended_mode: (for Twitter: single or thread; for LinkedIn: standard, article, or quick)
-        - confidence: (0.0 to 1.0)
-        - key_themes: (list of 2-3 main themes)
-        
-        Respond ONLY with valid JSON, no additional text.
+        Evaluate the idea below and respond with JSON only.
+
+        idea: "{idea}"
+        emoji_hint: "{emoji if emoji else 'None'}"
+
+        JSON schema:
+        {{
+          "tone": "casual|professional|excited|reflective|frustrated|celebratory",
+          "sentiment": "positive|negative|neutral",
+          "complexity": "simple|moderate|complex",
+          "recommended_platform": "linkedin|twitter|both",
+          "recommended_mode": "single|thread|standard|article|quick",
+          "confidence": float (0.0 - 1.0),
+          "key_themes": ["theme1", "theme2"]
+        }}
         """
         
         try:
@@ -69,35 +86,24 @@ class GeminiService:
         instruction = mode_instructions.get(mode, mode_instructions["standard"])
         
         prompt = f"""
-        Transform this idea into LinkedIn-optimized content:
-        
-        Original Idea: "{idea}"
-        Selected Emoji: {emoji if emoji else "None"}
-        Mode: {mode} ({instruction})
-        Tone: {tone if tone else "Infer from the idea"}
-        
-        CRITICAL RULES:
-        1. Preserve the core message and intent - DO NOT change the fundamental idea
-        2. Maintain the user's authentic voice while enhancing clarity
-        3. Keep personal anecdotes and specific details intact
-        
-        Create professional LinkedIn content with:
-        - Hook opening line (attention-grabbing)
-        - Well-structured body with line breaks for readability
-        - Strategic emoji placement (professional, 2-3 maximum)
-        - 3-5 relevant industry hashtags
-        - Call-to-action or thought-provoking conclusion
-        
-        Return JSON:
+        Craft LinkedIn content from this idea.
+
+        original_idea: "{idea}"
+        emoji_hint: "{emoji if emoji else 'None'}"
+        selected_mode: "{mode}" (guidance: {instruction})
+        tone_override: "{tone if tone else 'infer'}"
+
+        Produce a hooky intro, short paragraphs, and a closing CTA or question.
+        Use <=3 tasteful emojis and 3-5 relevant hashtags. Keep the voice authentic.
+
+        Return JSON only:
         {{
-            "content": "the generated post",
-            "hashtags": ["hashtag1", "hashtag2"],
-            "tone": "detected/applied tone",
-            "professional_score": 85,
-            "character_count": 1234
+          "content": "...",
+          "hashtags": ["#tag"],
+          "tone": "...",
+          "professional_score": int (0-100),
+          "character_count": int
         }}
-        
-        Respond ONLY with valid JSON.
         """
         
         try:
@@ -130,31 +136,18 @@ class GeminiService:
     ) -> dict:
         """Generate a single tweet"""
         prompt = f"""
-        Transform this idea into a concise, punchy tweet:
-        
-        Original Idea: "{idea}"
-        Selected Emoji: {emoji if emoji else "None"}
-        Tone: {tone if tone else "Infer from the idea"}
-        
-        CRITICAL RULES:
-        1. Preserve the core message - DO NOT change the fundamental idea
-        2. Keep the user's authentic voice
-        3. Maximum 270 characters (leave room for potential edits)
-        
-        Create engaging tweet content with:
-        - Front-loaded key message
-        - Incorporate emoji naturally
-        - 1-3 relevant trending hashtags
-        - Creates curiosity or urgency when appropriate
-        
-        Return JSON:
+        Convert the idea into a single X post (<=270 characters).
+
+        idea: "{idea}"
+        emoji_hint: "{emoji if emoji else 'None'}"
+        tone_override: "{tone if tone else 'infer'}"
+
+        Return JSON only:
         {{
-            "content": "the tweet text",
-            "hashtags": ["hashtag1", "hashtag2"],
-            "character_count": 245
+          "content": "tweet text",
+          "hashtags": ["#tag"],
+          "character_count": int
         }}
-        
-        Respond ONLY with valid JSON.
         """
         
         try:
@@ -173,36 +166,21 @@ class GeminiService:
     ) -> dict:
         """Generate a Twitter thread"""
         prompt = f"""
-        Transform this idea into a compelling Twitter thread (3-10 tweets):
-        
-        Original Idea: "{idea}"
-        Selected Emoji: {emoji if emoji else "None"}
-        Tone: {tone if tone else "Infer from the idea"}
-        
-        CRITICAL RULES:
-        1. Preserve the core message and narrative - DO NOT deviate
-        2. Maintain the user's authentic voice throughout
-        3. Each tweet must stand alone but flow cohesively
-        
-        Create thread with:
-        - First tweet: Compelling hook with thread indicator (1/X)
-        - Middle tweets: Develop idea with examples, data, or narrative
-        - Final tweet: Conclusion with CTA + "End of thread" indicator
-        - Strategic emoji use (1-2 per tweet maximum)
-        - Each tweet under 270 characters
-        
-        Return JSON:
+        Build a Twitter thread (3-10 tweets) from this idea.
+
+        idea: "{idea}"
+        emoji_hint: "{emoji if emoji else 'None'}"
+        tone_override: "{tone if tone else 'infer'}"
+
+        Each tweet must be <=270 characters. The first tweet hooks with (1/N); the final tweet lands a CTA and "End of thread" signal. Maintain a consistent, authentic voice.
+
+        Return JSON only:
         {{
-            "tweets": [
-                {{"sequence": 1, "content": "First tweet...", "character_count": 245}},
-                {{"sequence": 2, "content": "Second tweet...", "character_count": 268}}
-            ],
-            "thread_summary": "Brief summary of the thread",
-            "total_tweets": 5,
-            "hashtags": ["hashtag1", "hashtag2"]
+          "tweets": [{{"sequence": 1, "content": "...", "character_count": int}}],
+          "thread_summary": "...",
+          "total_tweets": int,
+          "hashtags": ["#tag"]
         }}
-        
-        Respond ONLY with valid JSON.
         """
         
         try:
@@ -228,26 +206,16 @@ class GeminiService:
         Refine existing content based on user instructions
         """
         prompt = f"""
-        Refine this {platform} content based on the user's instruction:
-        
-        Current Content:
-        "{current_content}"
-        
-        User Instruction: "{instruction}"
-        
-        Refine the content while:
-        - Following the user's specific instruction
-        - Maintaining the core message
-        - Keeping it optimized for {platform}
-        - Preserving character limits
-        
-        Return JSON:
+        Refine the {platform} post below according to the instruction. Maintain intent and platform constraints.
+
+        content: "{current_content}"
+        instruction: "{instruction}"
+
+        Return JSON only:
         {{
-            "refined_content": "the improved content",
-            "changes_made": "brief description of changes"
+          "refined_content": "...",
+          "changes_made": "..."
         }}
-        
-        Respond ONLY with valid JSON.
         """
         
         try:

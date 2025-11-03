@@ -41,6 +41,24 @@ const ContentPreview = ({
   const [error, setError] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState<number>(0);
   const [isPosting, setIsPosting] = useState<boolean>(false);
+
+  const extractImagePayload = (dataUrl: string | null): { base64?: string; mimeType?: string } => {
+    if (!dataUrl) {
+      return {};
+    }
+
+    const match = dataUrl.match(/^data:([^;,]+)(?:;[^,]+)*;base64,(.+)$/);
+    if (!match) {
+      return {};
+    }
+
+    const [, mime, data] = match;
+
+    return {
+      base64: data,
+      mimeType: mime,
+    };
+  };
   const twitterEntries = useMemo(() => {
     if (!generatedContent.twitter) {
       return [] as { sequence: number; content: string; characterCount: number; }[];
@@ -191,12 +209,14 @@ const ContentPreview = ({
 
     const successes: string[] = [];
     const errors: string[] = [];
+    const imagePayload = extractImagePayload(imagePreview);
 
     if (generatedContent.linkedin) {
       try {
         await publishLinkedIn({
           content: generatedContent.linkedin.generated_content,
-          image_url: imagePreview ?? undefined,
+          image_base64: imagePayload.base64,
+          image_mime_type: imagePayload.mimeType,
         });
         successes.push("LinkedIn");
       } catch (err) {
@@ -219,7 +239,8 @@ const ContentPreview = ({
       try {
         await publishTwitter({
           content: baseContent,
-          image_url: imagePreview ?? undefined,
+          image_base64: imagePayload.base64,
+          image_mime_type: imagePayload.mimeType,
           mode: isThread ? "thread" : "single",
           thread_tweets: isThread ? tweets : undefined,
         });

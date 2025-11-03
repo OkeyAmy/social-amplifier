@@ -189,6 +189,40 @@ class TwitterService:
             
             except httpx.HTTPError as e:
                 raise PublishingError(f"Failed to publish tweet: {str(e)}")
+
+    async def upload_media(
+        self,
+        encrypted_access_token: str,
+        image_bytes: bytes,
+        mime_type: str,
+    ) -> str:
+        """Upload media to Twitter and return the media ID."""
+        access_token = decrypt_token(encrypted_access_token)
+        media_data = base64.b64encode(image_bytes).decode("utf-8")
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://upload.twitter.com/1.1/media/upload.json",
+                data={
+                    "media_data": media_data,
+                    "media_category": "tweet_image",
+                    "media_type": mime_type,
+                },
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
+            )
+
+            if response.status_code != 200:
+                raise PublishingError(f"Failed to upload media to Twitter: {response.text}")
+
+            data = response.json()
+            media_id = data.get("media_id_string") or data.get("media_id")
+            if not media_id:
+                raise PublishingError("Twitter media upload did not return a media ID.")
+
+            return str(media_id)
     
     async def publish_thread(
         self,

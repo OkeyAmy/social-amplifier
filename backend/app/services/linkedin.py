@@ -111,7 +111,9 @@ class LinkedInService:
         self,
         encrypted_access_token: str,
         content: str,
-        image_url: Optional[str] = None,
+        image_bytes: Optional[bytes] = None,
+        image_mime_type: Optional[str] = None,
+        owner_urn: Optional[str] = None,
         user_id: Optional[str] = None
     ) -> Dict:
         """
@@ -123,17 +125,32 @@ class LinkedInService:
         if not user_id:
             profile = await self.get_user_profile(encrypted_access_token)
             user_id = profile.get("id")
+
+        author_urn = owner_urn or (f"urn:li:person:{user_id}" if user_id else None)
+
+        if not author_urn:
+            raise PublishingError("Unable to resolve LinkedIn member identifier for publishing.")
+
+        asset_urn: Optional[str] = None
+        if image_bytes:
+            image_type = image_mime_type or "image/jpeg"
+            asset_urn = await self.upload_image(
+                encrypted_access_token,
+                author_urn,
+                image_bytes,
+                image_type,
+            )
         
         # Construct post payload
         post_data = {
-            "author": f"urn:li:person:{user_id}",
+            "author": author_urn,
             "lifecycleState": "PUBLISHED",
             "specificContent": {
                 "com.linkedin.ugc.ShareContent": {
                     "shareCommentary": {
                         "text": content
                     },
-                    "shareMediaCategory": "NONE"
+                    "shareMediaCategory": "IMAGE" if asset_urn else "NONE"
                 }
             },
             "visibility": {
@@ -142,15 +159,14 @@ class LinkedInService:
         }
         
         # Add image if provided
-        if image_url:
-            post_data["specificContent"]["com.linkedin.ugc.ShareContent"]["shareMediaCategory"] = "IMAGE"
+        if asset_urn:
             post_data["specificContent"]["com.linkedin.ugc.ShareContent"]["media"] = [
                 {
                     "status": "READY",
                     "description": {
                         "text": "Shared image"
                     },
-                    "media": image_url,
+                    "media": asset_urn,
                     "title": {
                         "text": "Image"
                     }
@@ -179,6 +195,67 @@ class LinkedInService:
             
             except httpx.HTTPError as e:
                 raise PublishingError(f"Failed to publish to LinkedIn: {str(e)}")
+
+    async def upload_image(
+        self,
+        encrypted_access_token: str,
+        owner_urn: str,
+        image_bytes: bytes,
+        mime_type: str,
+    ) -> str:
+        """Register and upload an image to LinkedIn, returning the asset URN."""
+        access_token = decrypt_token(encrypted_access_token)
+
+        register_payload = {
+            "registerUploadRequest": {
+                "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
+                "owner": owner_urn,
+                "serviceRelationships": [
+                    {
+                        "relationshipType": "OWNER",
+                        "identifier": "urn:li:userGeneratedContent"
+                    }
+                ]
+            }
+        }
+
+        async with httpx.AsyncClient() as client:
+            register_response = await client.post(
+                "https://api.linkedin.com/v2/assets?action=registerUpload",
+                json=register_payload,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                }
+            )
+
+            if register_response.status_code not in (200, 201):
+                raise PublishingError(f"Failed to register LinkedIn image upload: {register_response.text}")
+
+            data = register_response.json().get("value", {})
+            upload_mechanism = data.get("uploadMechanism", {})
+            upload_info = upload_mechanism.get("com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest", {})
+            upload_url = upload_info.get("uploadUrl")
+            asset = data.get("asset")
+
+            if not upload_url or not asset:
+                raise PublishingError("LinkedIn upload response missing asset information.")
+
+            upload_headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": mime_type,
+            }
+
+            upload_response = await client.put(
+                upload_url,
+                content=image_bytes,
+                headers=upload_headers,
+            )
+
+            if upload_response.status_code not in (200, 201):
+                raise PublishingError(f"Failed to upload image to LinkedIn: {upload_response.text}")
+
+            return asset
     
     async def refresh_access_token(self, encrypted_refresh_token: str) -> Dict:
         """
