@@ -7,6 +7,8 @@ import secrets
 import hashlib
 import base64
 
+from urllib.parse import urlencode, quote
+
 from app.core.config import settings
 from app.core.security import encrypt_token, decrypt_token
 from app.core.exceptions import PlatformConnectionError, TokenExpiredError, PublishingError, RateLimitError
@@ -52,8 +54,8 @@ class TwitterService:
             "code_challenge": code_challenge,
             "code_challenge_method": "S256"
         }
-        
-        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+
+        query_string = urlencode(params, quote_via=quote)
         return f"{self.auth_url}?{query_string}"
     
     async def exchange_code_for_token(self, code: str, code_verifier: str) -> Dict:

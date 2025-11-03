@@ -5,6 +5,8 @@ import httpx
 from typing import Optional, Dict
 from datetime import datetime, timedelta
 
+from urllib.parse import urlencode, quote
+
 from app.core.config import settings
 from app.core.security import encrypt_token, decrypt_token
 from app.core.exceptions import PlatformConnectionError, TokenExpiredError, PublishingError
@@ -35,8 +37,8 @@ class LinkedInService:
             "state": state,
             "scope": scope_string
         }
-        
-        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+
+        query_string = urlencode(params, quote_via=quote)
         return f"{self.auth_url}?{query_string}"
     
     async def exchange_code_for_token(self, code: str) -> Dict:
