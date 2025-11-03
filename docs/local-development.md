@@ -27,6 +27,7 @@ The API server listens on `http://localhost:8000` by default. Interactive docs a
 pnpm install --no-strict-peer-dependencies
 if (!(Test-Path .env.local)) { Copy-Item .env.example .env.local }
 Add-Content .env.local "VITE_API_BASE_URL=http://localhost:8000"
+Add-Content backend/.env "DEFAULT_USER_EMAIL=default@socialamplifier.local"
 pnpm dev -- --host
 ```
 

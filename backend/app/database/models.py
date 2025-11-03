@@ -38,11 +38,15 @@ class User(Base):
     linkedin_refresh_token = Column(Text, nullable=True)
     linkedin_token_expires = Column(DateTime, nullable=True)
     linkedin_connected = Column(Boolean, default=False)
+    linkedin_username = Column(String(255), nullable=True)
+    linkedin_user_id = Column(String(255), nullable=True)
     
     twitter_access_token = Column(Text, nullable=True)
     twitter_refresh_token = Column(Text, nullable=True)
     twitter_token_expires = Column(DateTime, nullable=True)
     twitter_connected = Column(Boolean, default=False)
+    twitter_username = Column(String(255), nullable=True)
+    twitter_user_id = Column(String(255), nullable=True)
     
     # User preferences
     default_tone = Column(String(50), default="professional")

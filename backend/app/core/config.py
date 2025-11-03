@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     
     # Session Configuration
     SESSION_TIMEOUT_MINUTES: int = 30
+    DEFAULT_USER_EMAIL: str = os.getenv("DEFAULT_USER_EMAIL", "default@socialamplifier.local")
     
     class Config:
         env_file = ".env"
