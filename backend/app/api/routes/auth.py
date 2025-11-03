@@ -1,11 +1,9 @@
 """
 Authentication routes for LinkedIn and Twitter OAuth
 """
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, HTTPException, Query, Request
 import secrets
 
-from app.core.config import settings
 from app.schemas.auth import ConnectionStatus, PlatformConnectionsStatus
 from app.services.linkedin import linkedin_service
 from app.services.twitter import twitter_service
@@ -18,19 +16,20 @@ pkce_verifiers = {}
 
 
 @router.get("/linkedin/connect")
-async def linkedin_connect():
+async def linkedin_connect(request: Request):
     """
     Initiate LinkedIn OAuth flow
     """
     state = secrets.token_urlsafe(32)
     oauth_states[state] = "linkedin"
-    
-    auth_url = linkedin_service.get_authorization_url(state)
-    return {"authorization_url": auth_url, "state": state}
+
+    redirect_uri = str(request.url_for("linkedin_callback"))
+    auth_url = linkedin_service.get_authorization_url(state, redirect_uri=redirect_uri)
+    return {"authorization_url": auth_url, "state": state, "redirect_uri": redirect_uri}
 
 
 @router.get("/linkedin/callback")
-async def linkedin_callback(code: str = Query(...), state: str = Query(...)):
+async def linkedin_callback(request: Request, code: str = Query(...), state: str = Query(...)):
     """
     LinkedIn OAuth callback
     """
@@ -43,7 +42,8 @@ async def linkedin_callback(code: str = Query(...), state: str = Query(...)):
     
     try:
         # Exchange code for tokens
-        tokens = await linkedin_service.exchange_code_for_token(code)
+        redirect_uri = str(request.url_for("linkedin_callback"))
+        tokens = await linkedin_service.exchange_code_for_token(code, redirect_uri=redirect_uri)
         
         # In production, store tokens in database associated with user session
         # For now, return them (frontend should store securely)
@@ -60,7 +60,7 @@ async def linkedin_callback(code: str = Query(...), state: str = Query(...)):
 
 
 @router.get("/twitter/connect")
-async def twitter_connect():
+async def twitter_connect(request: Request):
     """
     Initiate Twitter OAuth flow with PKCE
     """
@@ -69,13 +69,14 @@ async def twitter_connect():
     
     oauth_states[state] = "twitter"
     pkce_verifiers[state] = code_verifier
-    
-    auth_url = twitter_service.get_authorization_url(state, code_challenge)
-    return {"authorization_url": auth_url, "state": state}
+
+    redirect_uri = str(request.url_for("twitter_callback"))
+    auth_url = twitter_service.get_authorization_url(state, code_challenge, redirect_uri=redirect_uri)
+    return {"authorization_url": auth_url, "state": state, "redirect_uri": redirect_uri}
 
 
 @router.get("/twitter/callback")
-async def twitter_callback(code: str = Query(...), state: str = Query(...)):
+async def twitter_callback(request: Request, code: str = Query(...), state: str = Query(...)):
     """
     Twitter OAuth callback
     """
@@ -94,7 +95,8 @@ async def twitter_callback(code: str = Query(...), state: str = Query(...)):
     
     try:
         # Exchange code for tokens
-        tokens = await twitter_service.exchange_code_for_token(code, code_verifier)
+        redirect_uri = str(request.url_for("twitter_callback"))
+        tokens = await twitter_service.exchange_code_for_token(code, code_verifier, redirect_uri=redirect_uri)
         
         return {
             "success": True,

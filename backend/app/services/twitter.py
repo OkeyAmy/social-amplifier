@@ -38,17 +38,21 @@ class TwitterService:
         
         return code_verifier, code_challenge
     
-    def get_authorization_url(self, state: str, code_challenge: str) -> str:
+    def get_authorization_url(self, state: str, code_challenge: str, redirect_uri: Optional[str] = None) -> str:
         """
         Generate Twitter OAuth 2.0 authorization URL with PKCE
         """
         scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
         scope_string = " ".join(scopes)
+        redirect = (redirect_uri or self.redirect_uri or "").strip()
+
+        if not redirect:
+            raise PlatformConnectionError("Twitter redirect URI is not configured.")
         
         params = {
             "response_type": "code",
             "client_id": self.client_id,
-            "redirect_uri": self.redirect_uri,
+            "redirect_uri": redirect,
             "scope": scope_string,
             "state": state,
             "code_challenge": code_challenge,
@@ -58,10 +62,15 @@ class TwitterService:
         query_string = urlencode(params, quote_via=quote)
         return f"{self.auth_url}?{query_string}"
     
-    async def exchange_code_for_token(self, code: str, code_verifier: str) -> Dict:
+    async def exchange_code_for_token(self, code: str, code_verifier: str, redirect_uri: Optional[str] = None) -> Dict:
         """
         Exchange authorization code for access token using PKCE
         """
+        redirect = (redirect_uri or self.redirect_uri or "").strip()
+
+        if not redirect:
+            raise PlatformConnectionError("Twitter redirect URI is not configured.")
+
         async with httpx.AsyncClient() as client:
             try:
                 # Prepare basic auth
@@ -74,7 +83,7 @@ class TwitterService:
                     data={
                         "grant_type": "authorization_code",
                         "code": code,
-                        "redirect_uri": self.redirect_uri,
+                        "redirect_uri": redirect,
                         "code_verifier": code_verifier
                     },
                     headers={
