@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.database.models import User
 from app.database.session import get_session
 from app.schemas.auth import ConnectionStatus, PlatformConnectionsStatus
+from app.core.exceptions import PlatformConnectionError, TokenExpiredError
 
 
 DEFAULT_USER_EMAIL = getattr(settings, "DEFAULT_USER_EMAIL", None) or "default@socialamplifier.local"
@@ -103,6 +104,34 @@ class UserConnectionService:
             await session.refresh(user)
 
             return self._build_connection_status(platform, user)
+
+    async def get_linkedin_access_token(self) -> str:
+        async with get_session() as session:
+            user = await self._ensure_user(session)
+
+            if not user.linkedin_connected or not user.linkedin_access_token:
+                raise PlatformConnectionError("LinkedIn account is not connected.")
+
+            if user.linkedin_token_expires and user.linkedin_token_expires <= datetime.utcnow():
+                user.linkedin_connected = False
+                await session.commit()
+                raise TokenExpiredError("LinkedIn access token expired.")
+
+            return user.linkedin_access_token
+
+    async def get_twitter_access_token(self) -> str:
+        async with get_session() as session:
+            user = await self._ensure_user(session)
+
+            if not user.twitter_connected or not user.twitter_access_token:
+                raise PlatformConnectionError("Twitter account is not connected.")
+
+            if user.twitter_token_expires and user.twitter_token_expires <= datetime.utcnow():
+                user.twitter_connected = False
+                await session.commit()
+                raise TokenExpiredError("Twitter access token expired.")
+
+            return user.twitter_access_token
 
     async def _ensure_user(self, session: AsyncSession) -> User:
         stmt = select(User).where(User.email == self.default_email)

@@ -8,6 +8,8 @@ import {
   generateLinkedInContent,
   generateTwitterContent,
   saveDraft,
+  publishLinkedIn,
+  publishTwitter,
 } from "@/services/api";
 import { ApiError } from "@/types/api";
 
@@ -38,6 +40,7 @@ const ContentPreview = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState<number>(0);
+  const [isPosting, setIsPosting] = useState<boolean>(false);
   const twitterEntries = useMemo(() => {
     if (!generatedContent.twitter) {
       return [] as { sequence: number; content: string; characterCount: number; }[];
@@ -138,7 +141,24 @@ const ContentPreview = ({
     setRefreshNonce(prev => prev + 1);
   };
 
-  const handlePost = () => {
+  const resolveApiError = (error: unknown, fallback: string): string => {
+    if (error instanceof ApiError) {
+      if (typeof error.data === "object" && error.data !== null && "detail" in error.data) {
+        const detailValue = (error.data as { detail?: unknown }).detail;
+        if (typeof detailValue === "string") {
+          return detailValue;
+        }
+      }
+      return fallback || `Request failed (status ${error.status}).`;
+    }
+    return fallback;
+  };
+
+  const handlePost = async () => {
+    if (isPosting) {
+      return;
+    }
+
     if (!generatedContent.linkedin && !generatedContent.twitter) {
       toast({
         title: "⚠️ NO CONTENT",
@@ -147,10 +167,65 @@ const ContentPreview = ({
       return;
     }
 
-    toast({
-      title: "🎉 READY TO POST!",
-      description: "Publishing requires valid access tokens from connected accounts.",
-    });
+    setIsPosting(true);
+
+    const successes: string[] = [];
+    const errors: string[] = [];
+
+    if (generatedContent.linkedin) {
+      try {
+        await publishLinkedIn({
+          content: generatedContent.linkedin.generated_content,
+          image_url: imagePreview ?? undefined,
+        });
+        successes.push("LinkedIn");
+      } catch (err) {
+        console.error("Failed to publish to LinkedIn:", err);
+        const detail = resolveApiError(err, "Unexpected error posting to LinkedIn.");
+        errors.push(`LinkedIn: ${detail}`);
+      }
+    }
+
+    if (generatedContent.twitter) {
+      const isThread = Boolean(generatedContent.twitter.is_thread && generatedContent.twitter.thread_tweets?.length);
+      const tweets = isThread
+        ? generatedContent.twitter.thread_tweets?.map(tweet => tweet.content) ?? []
+        : undefined;
+
+      const baseContent = isThread
+        ? (tweets && tweets.length ? tweets[0] : generatedContent.twitter.generated_content)
+        : generatedContent.twitter.generated_content;
+
+      try {
+        await publishTwitter({
+          content: baseContent,
+          image_url: imagePreview ?? undefined,
+          mode: isThread ? "thread" : "single",
+          thread_tweets: isThread ? tweets : undefined,
+        });
+        successes.push("Twitter");
+      } catch (err) {
+        console.error("Failed to publish to Twitter:", err);
+        const detail = resolveApiError(err, "Unexpected error posting to Twitter.");
+        errors.push(`Twitter: ${detail}`);
+      }
+    }
+
+    if (successes.length) {
+      toast({
+        title: "✅ PUBLISHED!",
+        description: `Successfully posted to ${successes.join(" & ")}.`,
+      });
+    }
+
+    if (errors.length) {
+      toast({
+        title: "❌ PUBLISH FAILED",
+        description: errors.join(" \n"),
+      });
+    }
+
+    setIsPosting(false);
   };
 
   const handleSaveDraft = async () => {
@@ -340,9 +415,10 @@ const ContentPreview = ({
         <Button
           onClick={handlePost}
           size="lg"
-          className="brutal-border brutal-shadow-lg bg-success text-success-foreground hover:bg-success/90 font-bold uppercase"
+          disabled={isPosting}
+          className="brutal-border brutal-shadow-lg bg-success text-success-foreground hover:bg-success/90 font-bold uppercase disabled:opacity-70"
         >
-          <Send className="mr-2" /> POST NOW
+          <Send className="mr-2" /> {isPosting ? "POSTING..." : "POST NOW"}
         </Button>
       </div>
     </div>

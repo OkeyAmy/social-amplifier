@@ -63,7 +63,6 @@ export interface DraftUpdatePayload {
 export interface PublishRequestPayload {
   content: string;
   image_url?: string | null;
-  access_token: string;
 }
 
 export interface PublishTwitterRequestPayload extends PublishRequestPayload {

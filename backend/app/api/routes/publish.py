@@ -1,13 +1,14 @@
 """
 Publishing routes for LinkedIn and Twitter
 """
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException
 from typing import Optional, List
 from pydantic import BaseModel
 
 from app.services.linkedin import linkedin_service
 from app.services.twitter import twitter_service
-from app.core.exceptions import PublishingError, TokenExpiredError, RateLimitError
+from app.services.user_connections import user_connection_service
+from app.core.exceptions import PublishingError, TokenExpiredError, RateLimitError, PlatformConnectionError
 
 router = APIRouter()
 
@@ -16,7 +17,6 @@ class PublishRequest(BaseModel):
     """Request to publish content"""
     content: str
     image_url: Optional[str] = None
-    access_token: str  # Encrypted access token
 
 
 class PublishTwitterRequest(PublishRequest):
@@ -31,8 +31,15 @@ async def publish_to_linkedin(request: PublishRequest):
     Publish content to LinkedIn
     """
     try:
+        try:
+            encrypted_token = await user_connection_service.get_linkedin_access_token()
+        except TokenExpiredError as exc:
+            raise HTTPException(status_code=401, detail="LinkedIn token expired. Please reconnect your account.") from exc
+        except PlatformConnectionError as exc:
+            raise HTTPException(status_code=400, detail="LinkedIn account is not connected.") from exc
+
         result = await linkedin_service.publish_post(
-            encrypted_access_token=request.access_token,
+            encrypted_access_token=encrypted_token,
             content=request.content,
             image_url=request.image_url
         )
@@ -58,10 +65,17 @@ async def publish_to_twitter(request: PublishTwitterRequest):
     Publish content to Twitter (single post or thread)
     """
     try:
+        try:
+            encrypted_token = await user_connection_service.get_twitter_access_token()
+        except TokenExpiredError as exc:
+            raise HTTPException(status_code=401, detail="Twitter token expired. Please reconnect your account.") from exc
+        except PlatformConnectionError as exc:
+            raise HTTPException(status_code=400, detail="Twitter account is not connected.") from exc
+
         if request.mode == "thread" and request.thread_tweets:
             # Publish thread
             results = await twitter_service.publish_thread(
-                encrypted_access_token=request.access_token,
+                encrypted_access_token=encrypted_token,
                 tweets=request.thread_tweets
             )
             
@@ -76,7 +90,7 @@ async def publish_to_twitter(request: PublishTwitterRequest):
         else:
             # Publish single tweet
             result = await twitter_service.publish_tweet(
-                encrypted_access_token=request.access_token,
+                encrypted_access_token=encrypted_token,
                 content=request.content
             )
             
@@ -114,8 +128,9 @@ async def publish_to_both_platforms(
     
     # Publish to LinkedIn
     try:
+        encrypted_token = await user_connection_service.get_linkedin_access_token()
         linkedin_result = await linkedin_service.publish_post(
-            encrypted_access_token=linkedin_request.access_token,
+            encrypted_access_token=encrypted_token,
             content=linkedin_request.content,
             image_url=linkedin_request.image_url
         )
@@ -123,14 +138,17 @@ async def publish_to_both_platforms(
             "success": True,
             "post_id": linkedin_result.get("id")
         }
+    except (PlatformConnectionError, TokenExpiredError) as exc:
+        errors.append(f"LinkedIn: {str(exc)}")
     except Exception as e:
         errors.append(f"LinkedIn: {str(e)}")
     
     # Publish to Twitter
     try:
+        encrypted_token = await user_connection_service.get_twitter_access_token()
         if twitter_request.mode == "thread" and twitter_request.thread_tweets:
             twitter_results = await twitter_service.publish_thread(
-                encrypted_access_token=twitter_request.access_token,
+                encrypted_access_token=encrypted_token,
                 tweets=twitter_request.thread_tweets
             )
             results["twitter"] = {
@@ -140,7 +158,7 @@ async def publish_to_both_platforms(
             }
         else:
             twitter_result = await twitter_service.publish_tweet(
-                encrypted_access_token=twitter_request.access_token,
+                encrypted_access_token=encrypted_token,
                 content=twitter_request.content
             )
             results["twitter"] = {
@@ -148,6 +166,8 @@ async def publish_to_both_platforms(
                 "mode": "single",
                 "tweet_id": twitter_result["data"]["id"]
             }
+    except (PlatformConnectionError, TokenExpiredError) as exc:
+        errors.append(f"Twitter: {str(exc)}")
     except Exception as e:
         errors.append(f"Twitter: {str(e)}")
     
