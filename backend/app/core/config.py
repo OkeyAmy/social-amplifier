@@ -65,19 +65,31 @@ settings = Settings()
 # Normalize `CORS_ORIGINS` into a List[str] so downstream code can always
 # treat `settings.CORS_ORIGINS` as a list. This accepts either a JSON array
 # string, a comma-separated string, or an empty value in the .env.
+DEFAULT_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
+
 cors_raw = settings.CORS_ORIGINS or ""
-if isinstance(cors_raw, str):
-    cors_value = cors_raw.strip()
+origins: List[str]
+if isinstance(cors_raw, list):
+    origins = cors_raw
+else:
+    cors_value = str(cors_raw).strip()
     if not cors_value:
-        settings.CORS_ORIGINS = []
+        # Fallback to safe dev defaults instead of disabling CORS
+        origins = DEFAULT_CORS_ORIGINS
     else:
         try:
             import json
-
             parsed = json.loads(cors_value)
             if isinstance(parsed, list):
-                settings.CORS_ORIGINS = parsed
+                origins = parsed
             else:
-                settings.CORS_ORIGINS = [p.strip() for p in cors_value.split(",") if p.strip()]
+                origins = [p.strip() for p in cors_value.split(",") if p.strip()]
         except Exception:
-            settings.CORS_ORIGINS = [p.strip() for p in cors_value.split(",") if p.strip()]
+            origins = [p.strip() for p in cors_value.split(",") if p.strip()]
+
+settings.CORS_ORIGINS = origins
