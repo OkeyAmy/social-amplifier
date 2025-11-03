@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     TWITTER_AUTH_URL: str = "https://twitter.com/i/oauth2/authorize"
     TWITTER_TOKEN_URL: str = "https://api.twitter.com/2/oauth2/token"
     TWITTER_API_URL: str = "https://api.twitter.com/2"
+    TWITTER_CONSUMER_KEY: str = os.getenv("TWITTER_CONSUMER_KEY", "")
+    TWITTER_CONSUMER_SECRET: str = os.getenv("TWITTER_CONSUMER_SECRET", "")
+    TWITTER_ACCESS_TOKEN: str = os.getenv("TWITTER_ACCESS_TOKEN", "")
+    TWITTER_ACCESS_TOKEN_SECRET: str = os.getenv("TWITTER_ACCESS_TOKEN_SECRET", "")
     
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./social_amplifier.db")

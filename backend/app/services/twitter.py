@@ -3,12 +3,15 @@ X (Twitter) API integration service using OAuth 2.0
 """
 import asyncio
 import httpx
+import requests
 from typing import Optional, Dict, List
 import secrets
 import hashlib
 import base64
 
 from urllib.parse import urlencode, quote
+
+from requests_oauthlib import OAuth1
 
 from app.core.config import settings
 from app.core.security import encrypt_token, decrypt_token
@@ -25,6 +28,8 @@ class TwitterService:
         self.auth_url = settings.TWITTER_AUTH_URL
         self.token_url = settings.TWITTER_TOKEN_URL
         self.api_url = settings.TWITTER_API_URL
+        self.consumer_key = settings.TWITTER_CONSUMER_KEY
+        self.consumer_secret = settings.TWITTER_CONSUMER_SECRET
     
     def generate_pkce_pair(self) -> tuple:
         """
@@ -154,7 +159,6 @@ class TwitterService:
         """
         Publish a single tweet
         """
-        access_token = decrypt_token(encrypted_access_token)
         
         tweet_data = {"text": content}
         
@@ -166,30 +170,48 @@ class TwitterService:
         if reply_to_id:
             tweet_data["reply"] = {"in_reply_to_tweet_id": reply_to_id}
         
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(
-                    f"{self.api_url}/tweets",
-                    json=tweet_data,
-                    headers={
-                        "Authorization": f"Bearer {access_token}",
-                        "Content-Type": "application/json"
-                    }
-                )
-                
-                if response.status_code == 401:
-                    raise TokenExpiredError("Twitter access token expired")
-                
-                if response.status_code == 429:
-                    raise RateLimitError("Twitter API rate limit exceeded. Please wait before posting again.")
-                
-                if response.status_code not in [200, 201]:
-                    raise PublishingError(f"Failed to publish tweet: {response.text}")
-                
-                return response.json()
-            
-            except httpx.HTTPError as e:
-                raise PublishingError(f"Failed to publish tweet: {str(e)}")
+        oauth = self._get_oauth1(encrypted_access_token)
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+
+        def _post_tweet() -> requests.Response:
+            return requests.post(
+                url="https://api.x.com/2/tweets",
+                json=tweet_data,
+                headers=headers,
+                auth=oauth,
+            )
+
+        response: requests.Response = await asyncio.to_thread(_post_tweet)
+
+        if response.status_code == 401:
+            raise TokenExpiredError("Twitter access token expired")
+
+        if response.status_code == 429:
+            raise RateLimitError("Twitter API rate limit exceeded. Please wait before posting again.")
+
+        if response.status_code < 200 or response.status_code >= 300:
+            raise PublishingError(f"Failed to publish tweet: {response.text}")
+
+        return response.json()
+
+    def _get_oauth1(self, encrypted_access_token: str) -> OAuth1:
+        if not self.consumer_key or not self.consumer_secret:
+            raise PublishingError("Twitter OAuth1 consumer credentials are not configured.")
+        if not settings.TWITTER_ACCESS_TOKEN or not settings.TWITTER_ACCESS_TOKEN_SECRET:
+            raise PublishingError("Twitter OAuth1 user access tokens are not configured.")
+        consumer_key = self.consumer_key
+        consumer_secret = self.consumer_secret
+        owner_key = settings.TWITTER_ACCESS_TOKEN
+        token_secret = settings.TWITTER_ACCESS_TOKEN_SECRET
+        return OAuth1(
+            consumer_key,
+            client_secret=consumer_secret,
+            resource_owner_key=owner_key,
+            resource_owner_secret=token_secret,
+        )
 
     async def upload_media(
         self,
@@ -197,106 +219,30 @@ class TwitterService:
         image_bytes: bytes,
         mime_type: str,
     ) -> str:
-        """Upload media to Twitter using chunked upload flow."""
-        access_token = decrypt_token(encrypted_access_token)
-        url = "https://upload.twitter.com/1.1/media/upload.json"
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-        }
-
-        async with httpx.AsyncClient() as client:
-            init_response = await client.post(
-                url,
-                data={
-                    "command": "INIT",
-                    "media_type": mime_type,
-                    "total_bytes": str(len(image_bytes)),
-                    "media_category": "tweet_image",
-                },
-                headers=headers,
-            )
-
-            if init_response.status_code != 200:
-                raise PublishingError(f"Failed to init Twitter media upload: {init_response.text}")
-
-            media_id = init_response.json().get("media_id_string")
-            if not media_id:
-                raise PublishingError("Twitter media INIT response missing media_id.")
-
-            chunk_size = 4 * 1024 * 1024  # 4MB per chunk as recommended by Twitter
-            for index in range(0, len(image_bytes), chunk_size):
-                chunk = image_bytes[index : index + chunk_size]
-                segment = index // chunk_size
-
-                append_response = await client.post(
-                    url,
-                    data={
-                        "command": "APPEND",
-                        "media_id": media_id,
-                        "segment_index": str(segment),
-                    },
-                    files={
-                        "media": ("chunk", chunk, mime_type),
-                    },
-                    headers=headers,
-                )
-
-                if append_response.status_code not in (200, 204):
-                    raise PublishingError(f"Failed to append Twitter media chunk: {append_response.text}")
-
-            finalize_response = await client.post(
-                url,
-                data={
-                    "command": "FINALIZE",
-                    "media_id": media_id,
-                },
-                headers=headers,
-            )
-
-            if finalize_response.status_code != 200:
-                raise PublishingError(f"Failed to finalize Twitter media upload: {finalize_response.text}")
-
-            processing_info = finalize_response.json().get("processing_info")
-            if processing_info:
-                await self._wait_for_media_processing(client, headers, media_id, processing_info)
-
-            return str(media_id)
-
-    async def _wait_for_media_processing(
-        self,
-        client: httpx.AsyncClient,
-        headers: Dict[str, str],
-        media_id: str,
-        processing_info: Dict,
-    ) -> None:
+        """Upload image media to Twitter using simple upload."""
+        oauth = self._get_oauth1(encrypted_access_token)
         url = "https://upload.twitter.com/1.1/media/upload.json"
 
-        state = processing_info.get("state")
-        while state in ("pending", "in_progress"):
-            wait_time = processing_info.get("check_after_secs", 1)
-            await asyncio.sleep(wait_time)
+        def _upload() -> requests.Response:
+            files = {
+                "media": ("upload", image_bytes, mime_type or "image/png"),
+            }
+            data = {
+                "media_category": "tweet_image",
+            }
+            return requests.post(url=url, files=files, data=data, auth=oauth)
 
-            status_response = await client.get(
-                url,
-                params={
-                    "command": "STATUS",
-                    "media_id": media_id,
-                },
-                headers=headers,
-            )
+        response: requests.Response = await asyncio.to_thread(_upload)
 
-            if status_response.status_code != 200:
-                raise PublishingError(f"Failed to poll Twitter media status: {status_response.text}")
+        if response.status_code < 200 or response.status_code >= 300:
+            raise PublishingError(f"Failed to upload media to Twitter: {response.text}")
 
-            processing_info = status_response.json().get("processing_info")
-            if not processing_info:
-                state = "succeeded"
-                break
-            state = processing_info.get("state")
+        data = response.json()
+        media_id = data.get("media_id_string") or data.get("media_id")
+        if not media_id:
+            raise PublishingError("Twitter media upload did not return a media ID.")
 
-        if state != "succeeded":
-            error_message = processing_info.get("error", {}).get("message", "Unknown media processing error")
-            raise PublishingError(f"Twitter media processing failed: {error_message}")
+        return str(media_id)
     
     async def publish_thread(
         self,
