@@ -130,67 +130,67 @@ const PostsPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
+      <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 md:space-y-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <div className="brutal-card p-4 md:p-6 bg-accent text-accent-foreground flex-1">
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold">YOUR POSTS</h1>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="brutal-card p-3 sm:p-4 md:p-6 bg-card text-foreground flex-1">
+            <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold break-words">YOUR POSTS</h1>
           </div>
           <NavLink to="/" className="w-full sm:w-auto">
             <Button
               size="lg"
-              className="w-full sm:w-auto brutal-border brutal-shadow-lg bg-success text-success-foreground hover:bg-success/90 font-bold uppercase px-6 md:px-8 py-4"
+              className="w-full sm:w-auto brutal-border brutal-shadow-lg bg-success text-success-foreground hover:bg-success/90 font-bold uppercase px-4 sm:px-6 md:px-8 py-3 sm:py-4 min-h-[44px] text-sm sm:text-base"
             >
-              <Plus className="mr-2 w-5 h-5 md:w-6 md:h-6" />
+              <Plus className="mr-2 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
               NEW POST
             </Button>
           </NavLink>
         </div>
 
-        <p className="text-lg md:text-xl font-bold text-center px-4">
-          COPY & PASTE TO YOUR PLATFORMS!
+        <p className="text-base sm:text-lg md:text-xl font-bold text-center px-2 sm:px-4 leading-tight">
+          COPY & PASTE TO DRIVE <span className="text-success">CONVERSIONS</span>!
         </p>
 
         {/* Posts List */}
         {posts.length === 0 ? (
-          <div className="brutal-card p-8 md:p-12 bg-card text-center">
-            <h3 className="text-xl md:text-2xl font-bold mb-4">NO POSTS YET</h3>
-            <p className="text-muted-foreground font-bold mb-6">
+          <div className="brutal-card p-6 sm:p-8 md:p-12 bg-card text-center">
+            <h3 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4">NO POSTS YET</h3>
+            <p className="text-sm sm:text-base text-muted-foreground font-bold mb-4 sm:mb-6">
               Create your first post to get started!
             </p>
             <NavLink to="/">
               <Button
                 size="lg"
-                className="brutal-border brutal-shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 font-bold uppercase"
+                className="brutal-border brutal-shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 font-bold uppercase text-sm sm:text-base min-h-[44px]"
               >
-                <Plus className="mr-2 w-5 h-5" />
+                <Plus className="mr-2 w-4 h-4 sm:w-5 sm:h-5" />
                 CREATE YOUR FIRST POST
               </Button>
             </NavLink>
           </div>
         ) : (
-          <div className="space-y-4 md:space-y-6">
+          <div className="space-y-3 sm:space-y-4 md:space-y-6">
             {posts.map((post) => (
-              <div key={post.id} className="brutal-card p-4 md:p-6 bg-card">
-                <div className="flex flex-col gap-4">
+              <div key={post.id} className="brutal-card p-3 sm:p-4 md:p-6 bg-card">
+                <div className="flex flex-col gap-3 sm:gap-4">
                   {/* Post Header */}
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl md:text-3xl flex-shrink-0">{post.emoji || "📝"}</span>
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <span className="text-xl sm:text-2xl md:text-3xl flex-shrink-0">{post.emoji || "📝"}</span>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg md:text-xl font-bold break-words">
+                      <h3 className="text-base sm:text-lg md:text-xl font-bold break-words">
                         {post.original_idea}
                       </h3>
                     </div>
                   </div>
                   
                   {/* Post Meta */}
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs md:text-sm text-muted-foreground font-bold">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 flex-shrink-0" />
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground font-bold">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                       <span className="truncate">Created {formatDate(post.created_at)}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         {getPlatformIcon(post.platform)}
                       </div>
                       <span className="uppercase truncate">
@@ -202,7 +202,7 @@ const PostsPage = () => {
 
                   {/* Post Content */}
                   {post.generated_content && (
-                    <div className="brutal-border bg-background p-3 md:p-4 font-mono text-xs md:text-sm overflow-x-auto">
+                    <div className="brutal-border bg-background p-3 sm:p-4 font-mono text-xs sm:text-sm overflow-x-auto break-words">
                       {post.generated_content.length > 150 
                         ? `${post.generated_content.substring(0, 150)}...`
                         : post.generated_content
@@ -216,9 +216,9 @@ const PostsPage = () => {
                       onClick={() => handleCopy(post.generated_content || post.original_idea)}
                       variant="outline"
                       size="sm"
-                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold flex-1 sm:flex-initial"
+                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold flex-1 sm:flex-initial min-h-[44px] text-xs sm:text-sm"
                     >
-                      <Copy className="w-4 h-4 mr-2" />
+                      <Copy className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">COPY</span>
                     </Button>
                     
@@ -226,9 +226,9 @@ const PostsPage = () => {
                       onClick={() => handleView(post)}
                       variant="outline"
                       size="sm"
-                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold flex-1 sm:flex-initial"
+                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold flex-1 sm:flex-initial min-h-[44px] text-xs sm:text-sm"
                     >
-                      <Eye className="w-4 h-4 mr-2" />
+                      <Eye className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">VIEW</span>
                     </Button>
                     
@@ -236,9 +236,9 @@ const PostsPage = () => {
                       onClick={() => handleDelete(post.id)}
                       variant="outline"
                       size="sm"
-                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground flex-1 sm:flex-initial"
+                      className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground flex-1 sm:flex-initial min-h-[44px] text-xs sm:text-sm"
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
+                      <Trash2 className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">DELETE</span>
                     </Button>
                   </div>

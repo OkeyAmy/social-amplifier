@@ -326,49 +326,49 @@ const ContentPreview = ({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex gap-4">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         <Button
           onClick={onBack}
           variant="outline"
-          className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+          className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex-1 sm:flex-initial min-h-[44px]"
         >
-          <ArrowLeft className="mr-2" /> BACK
+          <ArrowLeft className="mr-2 w-4 h-4 sm:w-5 sm:h-5" /> BACK
         </Button>
         <Button
           onClick={handleRegenerate}
           variant="outline"
-          className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+          className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex-1 sm:flex-initial min-h-[44px]"
         >
-          <RefreshCw className="mr-2" /> REGENERATE
+          <RefreshCw className="mr-2 w-4 h-4 sm:w-5 sm:h-5" /> REGENERATE
         </Button>
       </div>
 
       {isLoading && (
-        <div className="brutal-card p-4 bg-card text-center font-bold">
-          Generating optimized content...
+        <div className="brutal-card p-3 sm:p-4 bg-card text-center font-bold text-sm sm:text-base">
+          Generating conversion-optimized content...
         </div>
       )}
 
       {error && (
-        <div className="brutal-card p-4 bg-destructive text-destructive-foreground font-bold text-center">
+        <div className="brutal-card p-3 sm:p-4 bg-destructive text-destructive-foreground font-bold text-center text-sm sm:text-base">
           {error}
         </div>
       )}
 
-      <div className="brutal-card p-4 bg-warning text-warning-foreground">
-        <p className="font-bold text-center">
-          ⚠️ NOTE: Content is generated via the backend. Publishing still requires valid platform tokens.
+      <div className="brutal-card p-3 sm:p-4 bg-warning text-warning-foreground">
+        <p className="font-bold text-center text-xs sm:text-sm">
+          ⚠️ NOTE: Content is optimized for conversion. Publishing requires valid platform tokens.
         </p>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {generatedContent.linkedin && (
-          <div className="brutal-card p-6 bg-linkedin/10">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="text-3xl">💼</div>
-              <div>
-                <h3 className="text-xl font-bold">LINKEDIN POST</h3>
+          <div className="brutal-card p-4 sm:p-6 bg-linkedin/10">
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <div className="text-2xl sm:text-3xl">💼</div>
+              <div className="min-w-0">
+                <h3 className="text-lg sm:text-xl font-bold break-words">LINKEDIN POST</h3>
                 {generatedContent.linkedin.tone && (
                   <p className="text-xs text-muted-foreground font-bold">
                     Tone: {generatedContent.linkedin.tone} · Score: {generatedContent.linkedin.professional_score ?? "-"}
@@ -376,23 +376,23 @@ const ContentPreview = ({
                 )}
               </div>
             </div>
-            <div className="brutal-border bg-card p-4 space-y-4">
+            <div className="brutal-border bg-card p-3 sm:p-4 space-y-3 sm:space-y-4">
               {imagePreview && (
                 <img 
                   src={imagePreview} 
                   alt="Post" 
-                  className="w-full h-48 object-cover brutal-border"
+                  className="w-full h-40 sm:h-48 object-cover brutal-border"
                 />
               )}
-              <p className="whitespace-pre-wrap font-mono text-sm">
+              <p className="whitespace-pre-wrap font-mono text-xs sm:text-sm break-words">
                 {generatedContent.linkedin.generated_content}
               </p>
               {generatedContent.linkedin.hashtags.length > 0 && (
-                <div className="text-xs font-bold text-linkedin">
+                <div className="text-xs font-bold text-linkedin break-words">
                   {generatedContent.linkedin.hashtags.map(tag => `#${tag.replace(/^#/, "")}`).join(" ")}
                 </div>
               )}
-              <div className="text-xs text-muted-foreground font-bold flex items-center justify-between">
+              <div className="text-xs text-muted-foreground font-bold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-0">
                 <span>{generatedContent.linkedin.character_count} characters</span>
                 <span>Engagement: {generatedContent.linkedin.estimated_engagement}</span>
               </div>
@@ -401,27 +401,27 @@ const ContentPreview = ({
         )}
 
         {generatedContent.twitter && twitterEntries.length > 0 && (
-          <div className="brutal-card p-6 bg-twitter/10">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="text-3xl">𝕏</div>
-              <h3 className="text-xl font-bold">
+          <div className="brutal-card p-4 sm:p-6 bg-twitter/10">
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <div className="text-2xl sm:text-3xl">𝕏</div>
+              <h3 className="text-lg sm:text-xl font-bold break-words">
                 X {generatedContent.twitter.is_thread ? "THREAD" : "POST"}
               </h3>
             </div>
             <div className="space-y-3">
               {twitterEntries.map((tweet, index) => (
-                <div key={tweet.sequence ?? index} className="brutal-border bg-card p-4 space-y-3">
+                <div key={tweet.sequence ?? index} className="brutal-border bg-card p-3 sm:p-4 space-y-3">
                   {index === 0 && imagePreview && (
                     <img 
                       src={imagePreview} 
                       alt="Tweet" 
-                      className="w-full h-48 object-cover brutal-border mb-4"
+                      className="w-full h-40 sm:h-48 object-cover brutal-border mb-3 sm:mb-4"
                     />
                   )}
-                  <p className="whitespace-pre-wrap font-mono text-sm">
+                  <p className="whitespace-pre-wrap font-mono text-xs sm:text-sm break-words">
                     {tweet.content}
                   </p>
-                  <div className="text-xs text-muted-foreground font-bold flex items-center justify-between">
+                  <div className="text-xs text-muted-foreground font-bold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-0">
                     <span>Tweet {tweet.sequence}</span>
                     <span>{tweet.characterCount} characters</span>
                   </div>
@@ -429,7 +429,7 @@ const ContentPreview = ({
               ))}
             </div>
             {generatedContent.twitter.hashtags.length > 0 && (
-              <div className="mt-3 text-xs font-bold text-twitter">
+              <div className="mt-3 text-xs font-bold text-twitter break-words">
                 {generatedContent.twitter.hashtags.map(tag => `#${tag.replace(/^#/, "")}`).join(" ")}
               </div>
             )}
@@ -437,29 +437,29 @@ const ContentPreview = ({
         )}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid sm:grid-cols-3 gap-3 sm:gap-4">
         <Button
           onClick={onStartOver}
           variant="outline"
           size="lg"
-          className="brutal-border brutal-shadow hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold uppercase"
+          className="brutal-border brutal-shadow hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold uppercase text-sm sm:text-base min-h-[44px]"
         >
           START OVER
         </Button>
         <Button
           onClick={handleSaveDraft}
           size="lg"
-          className="brutal-border brutal-shadow bg-accent text-accent-foreground hover:bg-accent/90 font-bold uppercase"
+          className="brutal-border brutal-shadow bg-accent text-accent-foreground hover:bg-accent/90 font-bold uppercase text-sm sm:text-base min-h-[44px]"
         >
-          <Save className="mr-2" /> SAVE DRAFT
+          <Save className="mr-2 w-4 h-4 sm:w-5 sm:h-5" /> SAVE DRAFT
         </Button>
         <Button
           onClick={handlePost}
           size="lg"
           disabled={isPosting}
-          className="brutal-border brutal-shadow-lg bg-success text-success-foreground hover:bg-success/90 font-bold uppercase disabled:opacity-70"
+          className="brutal-border brutal-shadow-lg bg-success text-success-foreground hover:bg-success/90 font-bold uppercase disabled:opacity-70 text-sm sm:text-base min-h-[44px]"
         >
-          <Send className="mr-2" /> {isPosting ? "POSTING..." : "POST NOW"}
+          <Send className="mr-2 w-4 h-4 sm:w-5 sm:h-5" /> {isPosting ? "POSTING..." : "POST & CONVERT"}
         </Button>
       </div>
     </div>

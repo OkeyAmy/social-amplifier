@@ -53,13 +53,13 @@ const Index = () => {
   };
 
   return (
-    <div className="bg-background p-4 md:p-8">
-      <header className="mb-8 md:mb-12 text-center">
-        <div className="brutal-card p-8 bg-secondary text-secondary-foreground mx-auto inline-block mb-4">
-          <h1 className="text-4xl md:text-6xl font-bold">POSTBLASTER</h1>
+    <div className="bg-background p-3 sm:p-4 md:p-8">
+      <header className="mb-6 sm:mb-8 md:mb-12 text-center">
+        <div className="brutal-card p-4 sm:p-6 md:p-8 bg-secondary text-secondary-foreground mx-auto inline-block mb-3 sm:mb-4">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold break-words">POSTBLASTER</h1>
         </div>
-        <p className="text-xl font-bold">
-          DROP YOUR IDEA. WE'LL MAKE IT <span className="text-destructive">POP</span>!
+        <p className="text-base sm:text-lg md:text-xl font-bold px-2 sm:px-4 leading-tight">
+          DROP YOUR IDEA. WE'LL MAKE IT <span className="text-destructive">POP</span> & <span className="text-success">CONVERT</span>!
         </p>
       </header>
 

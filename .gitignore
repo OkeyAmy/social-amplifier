@@ -146,4 +146,8 @@ Icon\r
 *.swn
 *.tmp
 
+docs/
+backend/RENDER_DEPLOYMENT.md
+backend/DEPLOYMENT.md
+
 # End of .gitignore

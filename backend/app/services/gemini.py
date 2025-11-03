@@ -22,8 +22,9 @@ CORE PRINCIPLES
 2. Protect the voice. Keep phrasing, intensity, and POV aligned with the original idea while upgrading clarity and flow.
 3. Format like a pro. Use hooks, white space, scannable structure, and a modern feed rhythm.
 4. Respect limits. LinkedIn posts <= 3000 characters. X tweets <= 270 characters. Leave a little buffer for edits.
-5. Use emojis and hashtags intentionally (<=3 professional emojis per LinkedIn post, <=2 per tweet; 3-5 relevant hashtags max). Never spam.
-6. Default to inclusive, encouraging language. Inspire action, do not shame.
+5. Never use emojis. Write content using only text with clear paragraphs and proper spacing between paragraphs. Use double line breaks (\n\n) to separate paragraphs for better readability.
+6. Use hashtags intentionally (3-5 relevant hashtags max). Never spam.
+7. Default to inclusive, encouraging language. Inspire action, do not shame.
 
 RESPONSE CONTRACT
 - Output compact JSON only. No prose, Markdown, or code fences.
@@ -33,7 +34,9 @@ RESPONSE CONTRACT
 
 CREATIVE GUARDRAILS
 - Hooks must earn a scroll stop in the first line.
-- Body copy should ladder ideas logically, using deliberate line breaks for readability.
+- Body copy should ladder ideas logically, using deliberate paragraph breaks with double line spacing (\n\n) between paragraphs for clear readability and visual separation.
+- Format content with proper paragraph spacing: each paragraph should be separated by a blank line (double line break) to create clean, readable text blocks.
+- Never include emojis in any content.
 - Calls-to-action should invite conversation or reflection unless the idea explicitly demands a hard CTA.
 - Any additional color (examples, metaphors, data points) must be grounded in themes already present in the user input.
 
@@ -63,7 +66,6 @@ class GeminiService:
         Evaluate the idea below and respond with JSON only.
 
         idea: "{idea}"
-        emoji_hint: "{emoji if emoji else 'None'}"
 
         JSON schema:
         {{
@@ -106,12 +108,13 @@ class GeminiService:
         Craft LinkedIn content from this idea.
 
         original_idea: "{idea}"
-        emoji_hint: "{emoji if emoji else 'None'}"
         selected_mode: "{mode}" (guidance: {instruction})
         tone_override: "{tone if tone else 'infer'}"
 
-        Produce a hooky intro, short paragraphs, and a closing CTA or question.
-        Use <=3 tasteful emojis and 3-5 relevant hashtags. Keep the voice authentic.
+        Produce a hooky intro, well-structured paragraphs with proper spacing, and a closing CTA or question.
+        Format with clear paragraphs separated by double line breaks (\n\n) for readability.
+        Never use emojis. Write clean text only with proper paragraph spacing.
+        Use 3-5 relevant hashtags. Keep the voice authentic.
 
         Return JSON only:
         {{
@@ -156,8 +159,10 @@ class GeminiService:
         Convert the idea into a single X post (<=270 characters).
 
         idea: "{idea}"
-        emoji_hint: "{emoji if emoji else 'None'}"
         tone_override: "{tone if tone else 'infer'}"
+
+        Write clean text with proper paragraph spacing where applicable (double line breaks \n\n between paragraphs).
+        Never use emojis. Format with clear paragraphs if the content allows.
 
         Return JSON only:
         {{
@@ -186,10 +191,10 @@ class GeminiService:
         Build a Twitter thread (3-10 tweets) from this idea.
 
         idea: "{idea}"
-        emoji_hint: "{emoji if emoji else 'None'}"
         tone_override: "{tone if tone else 'infer'}"
 
         Each tweet must be <=270 characters. The first tweet hooks with (1/N); the final tweet lands a CTA and "End of thread" signal. Maintain a consistent, authentic voice.
+        Never use emojis. Write clean text only with proper formatting.
 
         Return JSON only:
         {{
