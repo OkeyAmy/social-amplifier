@@ -4,6 +4,7 @@ python-dotenv
 google-generativeai
 pydantic
 pydantic-settings
+email-validator
 httpx
 cryptography
 sqlalchemy
