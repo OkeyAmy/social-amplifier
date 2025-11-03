@@ -73,27 +73,36 @@ class TwitterService:
 
         async with httpx.AsyncClient() as client:
             try:
-                # Prepare basic auth
-                auth_string = f"{self.client_id}:{self.client_secret}"
-                auth_bytes = auth_string.encode('ascii')
-                auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
-                
+                headers = {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+
+                if self.client_secret:
+                    auth_string = f"{self.client_id}:{self.client_secret}"
+                    auth_bytes = auth_string.encode('ascii')
+                    auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+                    headers["Authorization"] = f"Basic {auth_b64}"
+
                 response = await client.post(
                     self.token_url,
                     data={
                         "grant_type": "authorization_code",
+                        "client_id": self.client_id,
                         "code": code,
                         "redirect_uri": redirect,
                         "code_verifier": code_verifier
                     },
-                    headers={
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "Authorization": f"Basic {auth_b64}"
-                    }
+                    headers=headers
                 )
                 
                 if response.status_code != 200:
-                    raise PlatformConnectionError(f"Twitter OAuth failed: {response.text}")
+                    try:
+                        error_detail = response.json()
+                    except ValueError:
+                        error_detail = response.text
+                    raise PlatformConnectionError(
+                        f"Twitter OAuth failed ({response.status_code}): {error_detail}"
+                    )
                 
                 data = response.json()
                 
@@ -217,25 +226,34 @@ class TwitterService:
         
         async with httpx.AsyncClient() as client:
             try:
-                # Prepare basic auth
-                auth_string = f"{self.client_id}:{self.client_secret}"
-                auth_bytes = auth_string.encode('ascii')
-                auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
-                
+                headers = {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+
+                if self.client_secret:
+                    auth_string = f"{self.client_id}:{self.client_secret}"
+                    auth_bytes = auth_string.encode('ascii')
+                    auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+                    headers["Authorization"] = f"Basic {auth_b64}"
+
                 response = await client.post(
                     self.token_url,
                     data={
                         "grant_type": "refresh_token",
+                        "client_id": self.client_id,
                         "refresh_token": refresh_token
                     },
-                    headers={
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "Authorization": f"Basic {auth_b64}"
-                    }
+                    headers=headers
                 )
                 
                 if response.status_code != 200:
-                    raise TokenExpiredError("Failed to refresh Twitter token")
+                    try:
+                        error_detail = response.json()
+                    except ValueError:
+                        error_detail = response.text
+                    raise TokenExpiredError(
+                        f"Failed to refresh Twitter token ({response.status_code}): {error_detail}"
+                    )
                 
                 data = response.json()
                 
