@@ -143,14 +143,34 @@ const ContentPreview = ({
 
   const resolveApiError = (error: unknown, fallback: string): string => {
     if (error instanceof ApiError) {
-      if (typeof error.data === "object" && error.data !== null && "detail" in error.data) {
-        const detailValue = (error.data as { detail?: unknown }).detail;
+      const payload = error.data;
+
+      if (payload && typeof payload === "object" && "detail" in payload) {
+        const detailValue = (payload as { detail?: unknown }).detail;
+
         if (typeof detailValue === "string") {
           return detailValue;
         }
+
+        if (Array.isArray(detailValue) && detailValue.length) {
+          const firstEntry = detailValue[0] as { msg?: unknown } | string;
+
+          if (typeof firstEntry === "string") {
+            return firstEntry;
+          }
+
+          if (firstEntry && typeof firstEntry === "object" && "msg" in firstEntry) {
+            const msg = (firstEntry as { msg?: unknown }).msg;
+            if (typeof msg === "string") {
+              return msg;
+            }
+          }
+        }
       }
+
       return fallback || `Request failed (status ${error.status}).`;
     }
+
     return fallback;
   };
 
