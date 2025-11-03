@@ -1,18 +1,70 @@
 """
 Authentication routes for LinkedIn and Twitter OAuth
 """
-from fastapi import APIRouter, HTTPException, Query, Request
+import logging
 import secrets
+from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
+
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.schemas.auth import ConnectionStatus, PlatformConnectionsStatus
 from app.services.linkedin import linkedin_service
 from app.services.twitter import twitter_service
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # In-memory state storage (use Redis in production)
 oauth_states = {}
 pkce_verifiers = {}
+
+# Temporary in-memory storage for connected accounts (replace with database persistence)
+connected_accounts: Dict[str, Dict[str, Any]] = {}
+
+
+def _calculate_expiry(expires_in: Optional[int]) -> Optional[datetime]:
+    """Convert an expires_in value (seconds) into an absolute UTC datetime."""
+    if not expires_in:
+        return None
+
+    try:
+        return datetime.utcnow() + timedelta(seconds=int(expires_in))
+    except (TypeError, ValueError):
+        logger.warning("Invalid expires_in value received: %s", expires_in)
+        return None
+
+
+def _build_connection_status(platform: str) -> ConnectionStatus:
+    """Assemble the connection status payload for the given platform."""
+    data = connected_accounts.get(platform)
+
+    if not data:
+        return ConnectionStatus(
+            platform=platform,
+            connected=False,
+            expires_at=None,
+            username=None,
+        )
+
+    expires_at: Optional[datetime] = data.get("expires_at")
+    if expires_at and expires_at <= datetime.utcnow():
+        # Token expired ? clear cached state and report disconnected
+        logger.info("%s token expired. Clearing cached connection state.", platform)
+        connected_accounts.pop(platform, None)
+        return ConnectionStatus(
+            platform=platform,
+            connected=False,
+            expires_at=None,
+            username=None,
+        )
+
+    return ConnectionStatus(
+        platform=platform,
+        connected=True,
+        expires_at=expires_at,
+        username=data.get("username"),
+    )
 
 
 @router.get("/linkedin/connect")
@@ -44,15 +96,43 @@ async def linkedin_callback(request: Request, code: str = Query(...), state: str
         # Exchange code for tokens
         redirect_uri = str(request.url_for("linkedin_callback"))
         tokens = await linkedin_service.exchange_code_for_token(code, redirect_uri=redirect_uri)
-        
-        # In production, store tokens in database associated with user session
-        # For now, return them (frontend should store securely)
-        
+
+        expires_at = _calculate_expiry(tokens.get("expires_in"))
+        profile_data: Optional[Dict[str, Any]] = None
+        username: Optional[str] = None
+
+        try:
+            profile_data = await linkedin_service.get_user_profile(tokens["access_token"])
+            if profile_data:
+                first_name = profile_data.get("localizedFirstName")
+                last_name = profile_data.get("localizedLastName")
+                vanity_name = profile_data.get("vanityName")
+
+                if first_name or last_name:
+                    username = " ".join(
+                        part for part in [first_name, last_name] if part
+                    ).strip() or None
+                if not username and vanity_name:
+                    username = vanity_name
+        except Exception as profile_error:  # pragma: no cover - best effort only
+            logger.warning("Failed to fetch LinkedIn profile: %s", profile_error)
+
+        connected_accounts["linkedin"] = {
+            "tokens": tokens,
+            "expires_at": expires_at,
+            "username": username,
+            "profile": profile_data,
+            "user_id": profile_data.get("id") if profile_data else None,
+            "connected_at": datetime.utcnow(),
+        }
+
         return {
             "success": True,
             "platform": "linkedin",
             "tokens": tokens,
-            "message": "LinkedIn connected successfully"
+            "message": "LinkedIn connected successfully",
+            "username": username,
+            "expires_at": expires_at,
         }
     
     except Exception as e:
@@ -97,12 +177,37 @@ async def twitter_callback(request: Request, code: str = Query(...), state: str 
         # Exchange code for tokens
         redirect_uri = str(request.url_for("twitter_callback"))
         tokens = await twitter_service.exchange_code_for_token(code, code_verifier, redirect_uri=redirect_uri)
+
+        expires_at = _calculate_expiry(tokens.get("expires_in"))
+        profile_data: Optional[Dict[str, Any]] = None
+        username: Optional[str] = None
+        user_id: Optional[str] = None
+
+        try:
+            profile_data = await twitter_service.get_user_profile(tokens["access_token"])
+            if profile_data:
+                data = profile_data.get("data") or {}
+                username = data.get("username") or data.get("name")
+                user_id = data.get("id")
+        except Exception as profile_error:  # pragma: no cover - best effort only
+            logger.warning("Failed to fetch Twitter profile: %s", profile_error)
+
+        connected_accounts["twitter"] = {
+            "tokens": tokens,
+            "expires_at": expires_at,
+            "username": username,
+            "profile": profile_data,
+            "user_id": user_id,
+            "connected_at": datetime.utcnow(),
+        }
         
         return {
             "success": True,
             "platform": "twitter",
             "tokens": tokens,
-            "message": "Twitter connected successfully"
+            "message": "Twitter connected successfully",
+            "username": username,
+            "expires_at": expires_at,
         }
     
     except Exception as e:
@@ -115,20 +220,10 @@ async def get_connection_status():
     Get status of platform connections
     TODO: Implement proper user session and database lookup
     """
-    # This is a placeholder - in production, check database for user's tokens
+    # This is temporary in-memory state. Replace with persistent storage per authenticated user.
     return PlatformConnectionsStatus(
-        linkedin=ConnectionStatus(
-            platform="linkedin",
-            connected=False,
-            expires_at=None,
-            username=None
-        ),
-        twitter=ConnectionStatus(
-            platform="twitter",
-            connected=False,
-            expires_at=None,
-            username=None
-        )
+        linkedin=_build_connection_status("linkedin"),
+        twitter=_build_connection_status("twitter"),
     )
 
 
@@ -141,7 +236,8 @@ async def disconnect_platform(platform: str):
     if platform not in ["linkedin", "twitter"]:
         raise HTTPException(status_code=400, detail="Invalid platform")
     
-    # In production: Delete tokens from database
+    # Remove cached tokens (replace with persistent store removal in production)
+    connected_accounts.pop(platform, None)
     
     return {
         "success": True,
