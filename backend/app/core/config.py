@@ -43,14 +43,8 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./social_amplifier.db")
     
-    # CORS
-    # Read the raw env value as a string to avoid the dotenv provider attempting
-    # to json-decode an empty value (which raises JSONDecodeError). We'll
-    # normalize to a list after settings are instantiated below.
-    CORS_ORIGINS: str = os.getenv(
-        "CORS_ORIGINS",
-        "http://localhost:5173,http://localhost:3000,http://localhost:8080,http://127.0.0.1:8080"
-    )
+    # CORS - Leave as str for now, converted to List[str] after instantiation
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://localhost:8080,http://127.0.0.1:8080"
     
     # Session Configuration
     SESSION_TIMEOUT_MINUTES: int = 30
@@ -62,9 +56,7 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Normalize `CORS_ORIGINS` into a List[str] so downstream code can always
-# treat `settings.CORS_ORIGINS` as a list. This accepts either a JSON array
-# string, a comma-separated string, or an empty value in the .env.
+# Normalize `CORS_ORIGINS` into a List[str]
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
@@ -73,23 +65,19 @@ DEFAULT_CORS_ORIGINS = [
 ]
 
 cors_raw = settings.CORS_ORIGINS or ""
-origins: List[str]
-if isinstance(cors_raw, list):
-    origins = cors_raw
-else:
-    cors_value = str(cors_raw).strip()
+if isinstance(cors_raw, str):
+    cors_value = cors_raw.strip()
     if not cors_value:
-        # Fallback to safe dev defaults instead of disabling CORS
         origins = DEFAULT_CORS_ORIGINS
     else:
         try:
             import json
             parsed = json.loads(cors_value)
-            if isinstance(parsed, list):
-                origins = parsed
-            else:
-                origins = [p.strip() for p in cors_value.split(",") if p.strip()]
+            origins = parsed if isinstance(parsed, list) else [p.strip() for p in cors_value.split(",") if p.strip()]
         except Exception:
             origins = [p.strip() for p in cors_value.split(",") if p.strip()]
+else:
+    origins = cors_raw if isinstance(cors_raw, list) else DEFAULT_CORS_ORIGINS
 
-settings.CORS_ORIGINS = origins
+# Convert back to ensure type consistency
+settings.CORS_ORIGINS = origins  # type: ignore
