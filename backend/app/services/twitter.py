@@ -1,6 +1,7 @@
 """
 X (Twitter) API integration service using OAuth 2.0
 """
+import asyncio
 import httpx
 from typing import Optional, Dict, List
 import secrets
@@ -196,33 +197,106 @@ class TwitterService:
         image_bytes: bytes,
         mime_type: str,
     ) -> str:
-        """Upload media to Twitter and return the media ID."""
+        """Upload media to Twitter using chunked upload flow."""
         access_token = decrypt_token(encrypted_access_token)
-        media_data = base64.b64encode(image_bytes).decode("utf-8")
+        url = "https://upload.twitter.com/1.1/media/upload.json"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+        }
 
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://upload.twitter.com/1.1/media/upload.json",
+            init_response = await client.post(
+                url,
                 data={
-                    "media_data": media_data,
-                    "media_category": "tweet_image",
+                    "command": "INIT",
                     "media_type": mime_type,
+                    "total_bytes": str(len(image_bytes)),
+                    "media_category": "tweet_image",
                 },
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/x-www-form-urlencoded",
-                }
+                headers=headers,
             )
 
-            if response.status_code != 200:
-                raise PublishingError(f"Failed to upload media to Twitter: {response.text}")
+            if init_response.status_code != 200:
+                raise PublishingError(f"Failed to init Twitter media upload: {init_response.text}")
 
-            data = response.json()
-            media_id = data.get("media_id_string") or data.get("media_id")
+            media_id = init_response.json().get("media_id_string")
             if not media_id:
-                raise PublishingError("Twitter media upload did not return a media ID.")
+                raise PublishingError("Twitter media INIT response missing media_id.")
+
+            chunk_size = 4 * 1024 * 1024  # 4MB per chunk as recommended by Twitter
+            for index in range(0, len(image_bytes), chunk_size):
+                chunk = image_bytes[index : index + chunk_size]
+                segment = index // chunk_size
+
+                append_response = await client.post(
+                    url,
+                    data={
+                        "command": "APPEND",
+                        "media_id": media_id,
+                        "segment_index": str(segment),
+                    },
+                    files={
+                        "media": ("chunk", chunk, mime_type),
+                    },
+                    headers=headers,
+                )
+
+                if append_response.status_code not in (200, 204):
+                    raise PublishingError(f"Failed to append Twitter media chunk: {append_response.text}")
+
+            finalize_response = await client.post(
+                url,
+                data={
+                    "command": "FINALIZE",
+                    "media_id": media_id,
+                },
+                headers=headers,
+            )
+
+            if finalize_response.status_code != 200:
+                raise PublishingError(f"Failed to finalize Twitter media upload: {finalize_response.text}")
+
+            processing_info = finalize_response.json().get("processing_info")
+            if processing_info:
+                await self._wait_for_media_processing(client, headers, media_id, processing_info)
 
             return str(media_id)
+
+    async def _wait_for_media_processing(
+        self,
+        client: httpx.AsyncClient,
+        headers: Dict[str, str],
+        media_id: str,
+        processing_info: Dict,
+    ) -> None:
+        url = "https://upload.twitter.com/1.1/media/upload.json"
+
+        state = processing_info.get("state")
+        while state in ("pending", "in_progress"):
+            wait_time = processing_info.get("check_after_secs", 1)
+            await asyncio.sleep(wait_time)
+
+            status_response = await client.get(
+                url,
+                params={
+                    "command": "STATUS",
+                    "media_id": media_id,
+                },
+                headers=headers,
+            )
+
+            if status_response.status_code != 200:
+                raise PublishingError(f"Failed to poll Twitter media status: {status_response.text}")
+
+            processing_info = status_response.json().get("processing_info")
+            if not processing_info:
+                state = "succeeded"
+                break
+            state = processing_info.get("state")
+
+        if state != "succeeded":
+            error_message = processing_info.get("error", {}).get("message", "Unknown media processing error")
+            raise PublishingError(f"Twitter media processing failed: {error_message}")
     
     async def publish_thread(
         self,
