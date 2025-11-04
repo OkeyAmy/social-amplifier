@@ -80,9 +80,14 @@ if isinstance(cors_raw, str):
         try:
             import json
             parsed = json.loads(cors_value)
-            origins = parsed if isinstance(parsed, list) else [p.strip() for p in cors_value.split(",") if p.strip()]
+            # Normalize: trim spaces and trailing slashes for exact Origin match
+            if isinstance(parsed, list):
+                origins = [p.strip().rstrip('/') for p in parsed if isinstance(p, str) and p.strip()]
+            else:
+                origins = [p.strip().rstrip('/') for p in cors_value.split(",") if p.strip()]
         except Exception:
-            origins = [p.strip() for p in cors_value.split(",") if p.strip()]
+            # Fallback: comma-separated string
+            origins = [p.strip().rstrip('/') for p in cors_value.split(",") if p.strip()]
 else:
     origins = cors_raw if isinstance(cors_raw, list) else DEFAULT_CORS_ORIGINS
 
