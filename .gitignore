@@ -149,5 +149,6 @@ Icon\r
 docs/
 backend/RENDER_DEPLOYMENT.md
 backend/DEPLOYMENT.md
+FRONTEND_DEPLOYMENT.md
 
 # End of .gitignore
