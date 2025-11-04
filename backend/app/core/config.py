@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./social_amplifier.db")
     
     # CORS - Leave as str for now, converted to List[str] after instantiation
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://localhost:8080,http://127.0.0.1:8080"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://localhost:8080,http://127.0.0.1:8080,https://social-amplifier.vercel.app, https://www.social-amplifier.vercel.app"
     
     # Session Configuration
     SESSION_TIMEOUT_MINUTES: int = 30
@@ -67,6 +67,8 @@ DEFAULT_CORS_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    "https://social-amplifier.vercel.app",
+    "https://www.social-amplifier.vercel.app",
 ]
 
 cors_raw = settings.CORS_ORIGINS or ""

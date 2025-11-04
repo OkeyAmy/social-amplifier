@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Copy, Eye, Trash2, Calendar, Linkedin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { NavLink } from "react-router-dom";
-import { getDrafts, deleteDraft } from "@/services/api";
+import { getDrafts, deleteDraft, updateDraft } from "@/services/api";
 import type { Draft } from "@/types/api";
 import { ApiError } from "@/types/api";
 
@@ -18,6 +18,8 @@ const PostsPage = () => {
   const { toast } = useToast();
   const [posts, setPosts] = useState<Draft[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState<string>("");
 
   const fetchPosts = useCallback(async () => {
     try {
@@ -57,12 +59,39 @@ const PostsPage = () => {
     }
   };
 
-  const handleView = (post: Draft) => {
-    // TODO: Open modal or navigate to detailed view
-    toast({
-      title: "👀 VIEW POST",
-      description: "Detailed view coming soon!",
-    });
+  const handleEditToggle = async (post: Draft) => {
+    // If not editing this post, enter edit mode with current content
+    if (editingId !== post.id) {
+      setEditingId(post.id);
+      setEditText(post.edited_content ?? post.generated_content ?? post.original_idea);
+      return;
+    }
+
+    // Saving current edit
+    try {
+      const updated = await updateDraft(post.id, { edited_content: editText });
+      setPosts(prev => prev.map(p => (p.id === post.id ? { ...p, edited_content: updated.edited_content, updated_at: updated.updated_at } : p)));
+      setEditingId(null);
+      setEditText("");
+      toast({
+        title: "💾 SAVED",
+        description: "Your changes have been saved.",
+      });
+    } catch (error) {
+      console.error("Failed to save draft:", error);
+      const message = error instanceof ApiError
+        ? `Save failed (status ${error.status}).`
+        : "Failed to save changes.";
+      toast({
+        title: "❌ SAVE FAILED",
+        description: message,
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditText("");
   };
 
   const handleDelete = async (postId: number) => {
@@ -201,13 +230,21 @@ const PostsPage = () => {
                   </div>
 
                   {/* Post Content */}
-                  {post.generated_content && (
-                    <div className="brutal-border bg-background p-3 sm:p-4 font-mono text-xs sm:text-sm overflow-x-auto break-words">
-                      {post.generated_content.length > 150 
-                        ? `${post.generated_content.substring(0, 150)}...`
-                        : post.generated_content
-                      }
-                    </div>
+                  {editingId === post.id ? (
+                    <textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      className="w-full brutal-border bg-background p-3 sm:p-4 font-mono text-xs sm:text-sm min-h-[140px]"
+                    />
+                  ) : (
+                    post.generated_content && (
+                      <div className="brutal-border bg-background p-3 sm:p-4 font-mono text-xs sm:text-sm overflow-x-auto break-words">
+                        {(post.edited_content ?? post.generated_content).length > 150
+                          ? `${(post.edited_content ?? post.generated_content).substring(0, 150)}...`
+                          : (post.edited_content ?? post.generated_content)
+                        }
+                      </div>
+                    )
                   )}
 
                   {/* Action Buttons */}
@@ -223,14 +260,24 @@ const PostsPage = () => {
                     </Button>
                     
                     <Button
-                      onClick={() => handleView(post)}
+                      onClick={() => handleEditToggle(post)}
                       variant="outline"
                       size="sm"
                       className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold flex-1 sm:flex-initial min-h-[44px] text-xs sm:text-sm"
                     >
                       <Eye className="w-4 h-4 mr-1 sm:mr-2" />
-                      <span className="hidden sm:inline">VIEW</span>
+                      <span className="hidden sm:inline">{editingId === post.id ? "SAVE" : "EDIT"}</span>
                     </Button>
+                    {editingId === post.id && (
+                      <Button
+                        onClick={handleCancelEdit}
+                        variant="outline"
+                        size="sm"
+                        className="brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-bold flex-1 sm:flex-initial min-h-[44px] text-xs sm:text-sm"
+                      >
+                        CANCEL
+                      </Button>
+                    )}
                     
                     <Button
                       onClick={() => handleDelete(post.id)}

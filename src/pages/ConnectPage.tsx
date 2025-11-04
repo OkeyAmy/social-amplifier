@@ -116,7 +116,7 @@ const ConnectPage = () => {
                   <Linkedin className="w-6 h-6 sm:w-8 sm:h-8 md:w-12 md:h-12" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold break-words">LINKEDIN</h3>
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold break-words">LINKEDIN <span className="text-xs align-middle bg-muted brutal-border px-2 py-0.5 rounded ml-1">COMING SOON</span></h3>
                   <p className="text-xs sm:text-sm text-muted-foreground font-bold leading-tight mt-1">
                     Professional Network • Business Content • High Conversion
                   </p>
@@ -147,20 +147,14 @@ const ConnectPage = () => {
                     </div>
                   </div>
                 ) : (
-                  <Button
-                    onClick={() => handleConnect("linkedin")}
-                    disabled={loading.linkedin}
-                    className="w-full sm:w-auto brutal-border brutal-shadow-lg bg-linkedin text-linkedin-foreground hover:bg-linkedin/90 font-bold uppercase px-4 sm:px-6 md:px-8 py-3 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg min-h-[44px]"
-                  >
-                    {loading.linkedin ? (
-                      "CONNECTING..."
-                    ) : (
-                      <>
-                        <ExternalLink className="mr-2 w-4 h-4 sm:w-5 sm:h-5" />
-                        CONNECT
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      disabled
+                      className="w-full sm:w-auto brutal-border brutal-shadow-lg bg-muted text-muted-foreground font-bold uppercase px-4 sm:px-6 md:px-8 py-3 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg min-h-[44px]"
+                    >
+                      COMING SOON
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
@@ -252,11 +246,11 @@ const ConnectPage = () => {
             </div>
             <div>
               <h4 className="font-bold text-xs sm:text-sm md:text-base">📊 ANALYTICS</h4>
-              <p className="text-xs sm:text-sm mt-1">Track performance and conversion metrics across platforms</p>
+              <p className="text-xs sm:text-sm mt-1">Coming soon: performance and conversion insights</p>
             </div>
             <div>
-              <h4 className="font-bold text-xs sm:text-sm md:text-base">🔒 SECURE</h4>
-              <p className="text-xs sm:text-sm mt-1">Your tokens are encrypted and secure</p>
+              <h4 className="font-bold text-xs sm:text-sm md:text-base">📝 DRAFTS</h4>
+              <p className="text-xs sm:text-sm mt-1">Save, edit, and manage drafts before publishing</p>
             </div>
           </div>
         </div>

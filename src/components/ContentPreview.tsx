@@ -358,7 +358,7 @@ const ContentPreview = ({
 
       <div className="brutal-card p-3 sm:p-4 bg-warning text-warning-foreground">
         <p className="font-bold text-center text-xs sm:text-sm">
-          ⚠️ NOTE: Content is optimized for conversion. Publishing requires valid platform tokens.
+          ⚠️ NOTE: Content is optimized for conversion.
         </p>
       </div>
 

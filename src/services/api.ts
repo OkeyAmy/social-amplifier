@@ -90,6 +90,16 @@ export function deleteDraft(draftId: number): Promise<{ success: boolean; messag
   });
 }
 
+export function updateDraft(
+  draftId: number,
+  payload: { edited_content?: string | null; generated_content?: string | null; image_url?: string | null }
+): Promise<Draft> {
+  return request<Draft>(`/api/v1/drafts/${draftId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function publishLinkedIn(payload: PublishRequestPayload): Promise<{ success: boolean; platform: string; post_id?: string; message: string; }> {
   return request(`/api/v1/publish/linkedin`, {
     method: "POST",
