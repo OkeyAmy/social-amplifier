@@ -8,6 +8,7 @@ import ConnectPage from "./pages/ConnectPage";
 import PostsPage from "./pages/PostsPage";
 import NotFound from "./pages/NotFound";
 import Navbar from "./components/Navbar";
+import { Analytics } from "@vercel/analytics/react";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <Analytics />
         </div>
       </BrowserRouter>
     </TooltipProvider>
