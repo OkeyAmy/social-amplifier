@@ -100,6 +100,7 @@ FORMAT RULES
 - Return JSON only using the requested schema.
 - Do not include TWEET:, CHAR COUNT:, template labels, notes, or explanations in the content field.
 - For hashtags, return [] unless the user explicitly asked for hashtags.
+- Make sure you do not deviate from the context of the writing of the user
 """
 
 TWITTER_MAX_CHARS = 280
