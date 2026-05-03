@@ -199,7 +199,7 @@ class GeminiService:
             if emoji and emoji not in content:
                 content = f"{emoji} {content}".strip()
                 result["content"] = content
-            result["character_count"] = len(result.get("content", ""))
+            result["character_count"] = len(content)
             return result
         except Exception as e:
             raise ContentGenerationError(f"Failed to generate LinkedIn content: {str(e)}")
@@ -400,11 +400,11 @@ class GeminiService:
         trimmed = content[:limit].rstrip()
         boundary = max(trimmed.rfind("."), trimmed.rfind("!"), trimmed.rfind("?"), trimmed.rfind("\n"))
 
-        if boundary >= int(limit * 0.65):
+        if boundary > 0 and boundary >= int(limit * 0.65):
             return trimmed[:boundary + 1].rstrip()
 
         word_boundary = trimmed.rfind(" ")
-        if word_boundary >= int(limit * 0.65):
+        if word_boundary > 0 and word_boundary >= int(limit * 0.65):
             return trimmed[:word_boundary].rstrip()
 
         return trimmed
